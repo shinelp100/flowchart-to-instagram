@@ -10,7 +10,7 @@ import { resolve } from 'path';
 async function screenshot(inputPath, outputPath) {
   const browser = await chromium.launch();
   const page = await browser.newPage({
-    viewport: { width: 820, height: 1200 }
+    viewport: { width: 820, height: 600 }
   });
   
   // Resolve absolute path for input
