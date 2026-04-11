@@ -180,7 +180,12 @@ def parse_mermaid(text: str) -> Flowchart:
                 flowchart.all_nodes[node_id] = node
         
         # 解析连接关系 - 使用 findall 找出所有连接
-        conn_matches = re.findall(r'([A-Za-z0-9_]+)\s*[-<>]+\s*([A-Za-z0-9_]+)', line_stripped)
+        # 匹配连接符号前后的节点（可能带有内容定义）
+        # 格式: A --> B 或 A["..."] --> B["..."]
+        # 简化策略：先去除节点内容定义，再匹配连接
+        line_clean = re.sub(r'\[[^\]]+\]', '', line_stripped)  # 去除 [...] 内容
+        line_clean = re.sub(r'\([^\)]+\)', '', line_clean)      # 去除 (...) 内容
+        conn_matches = re.findall(r'([A-Za-z0-9_]+)\s*(?:-{2,}>?|->|--)\s*([A-Za-z0-9_]+)', line_clean)
         for from_id, to_id in conn_matches:
             flowchart.all_connections.append((from_id, to_id))
             
