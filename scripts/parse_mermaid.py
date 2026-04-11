@@ -252,7 +252,7 @@ def generate_html(flowchart: Flowchart) -> str:
       padding-bottom: 20px;
     }
     .watermark-bg {
-      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
       pointer-events: none; z-index: 0;
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -294,7 +294,7 @@ def generate_html(flowchart: Flowchart) -> str:
     .node-6 { background: linear-gradient(135deg, #f8f5fe 0%, #e8dcf8 100%); }
   </style>
 </head>
-<body class="p-5 relative">
+<body class="p-5">
   <div class="watermark-bg">
     <div class="watermark-text">''' + flowchart.watermark + '''</div>
     <div class="watermark-text">''' + flowchart.watermark + '''</div>
