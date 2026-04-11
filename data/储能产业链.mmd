@@ -1,0 +1,81 @@
+%%{init: {
+'theme': 'base',
+'themeVariables': {
+'primaryColor': '#FFE5D9',
+'primaryTextColor': '#5D4E37',
+'primaryBorderColor': '#E8C4B8',
+'lineColor': '#B8A99A',
+'secondaryColor': '#D4E7D4',
+'secondaryTextColor': '#4A6741',
+'secondaryBorderColor': '#A8C8A8',
+'tertiaryColor': '#E8DFF5',
+'tertiaryTextColor': '#5D4E6D',
+'tertiaryBorderColor': '#C8B8D8',
+'background': '#FFFBF5',
+'mainBkg': '#FFF5EE',
+'nodeBorder': '#E8D5C4',
+'clusterBkg': '#F5F0EB',
+'clusterBorder': '#D4C4B8',
+'titleColor': '#6B5B4F',
+'edgeLabelBackground': '#FFF9F0',
+'fontFamily': 'PingFang SC, Microsoft YaHei, sans-serif',
+'fontSize': '15px'
+},
+'flowchart': {
+'curve': 'basis',
+'padding': 20,
+'nodeSpacing': 50,
+'rankSpacing': 80,
+'diagramPadding': 30
+}
+}}%%
+flowchart TD
+subgraph 上游["🏭 上游：材料与电芯"]
+A1["碳酸锂\n锂精矿"] --> A2["正极材料\n负极材料\n隔膜电解液"]
+A2 --> A3["电芯制造\n（宁德/比亚迪/亿纬）"]
+end
+
+subgraph 中游["⚙️ 中游：系统集成与变流器"]
+A3 --> B1["储能电池系统\n（PACK+BMS）"]
+B1 --> B2["储能变流器PCS\n（阳光/华为/上能）"]
+B2 --> B3["系统集成商\n（海博/远景/电工时代）"]
+end
+
+subgraph 下游["🛒 下游：应用场景"]
+B3 --> C1["电源侧\n（新能源配储）"]
+B3 --> C2["电网侧\n（独立储能/调频）"]
+B3 --> C3["用户侧\n（工商业/家庭储能）"]
+C1 --> C4["电力市场交易"]
+C2 --> C4
+C3 --> C5["虚拟电厂\n聚合调度"]
+end
+
+subgraph 政策["📜 政策驱动"]
+D1["国家能源局\n安全专项监管"] --> B3
+D2["新能源电价\n市场化改革"] --> C4
+D3["虚拟电厂\n发展指导意见"] --> C5
+end
+
+subgraph 出海["🌍 出海方向"]
+B3 --> E1["北美\n（IRA壁垒）"]
+B3 --> E2["欧洲\n（碳足迹门槛）"]
+B3 --> E3["中东/东南亚\n（新兴市场）"]
+end
+
+style A1 fill:#FFF3CD,stroke:#E8D8A8,color:#6B5B4F
+style A2 fill:#FFF3CD,stroke:#E8D8A8,color:#6B5B4F
+style A3 fill:#FFE5D9,stroke:#E8C4B8,color:#5D4E37
+style B1 fill:#FFE5D9,stroke:#E8C4B8,color:#5D4E37
+style B2 fill:#D6EAF8,stroke:#A8C8D8,color:#4A678D
+style B3 fill:#FFE5D9,stroke:#E8C4B8,color:#5D4E37
+style C1 fill:#D4E7D4,stroke:#A8C8A8,color:#4A6741
+style C2 fill:#D4E7D4,stroke:#A8C8A8,color:#4A6741
+style C3 fill:#D4E7D4,stroke:#A8C8A8,color:#4A4A6741
+style C4 fill:#E8DFF5,stroke:#C8B8D8,color:#5D4E6D
+style C5 fill:#E8DFF5,stroke:#C8B8D8,color:#5D4E6D
+style D1 fill:#FADBD8,stroke:#D8B8B8,color:#6B4E4E
+style D2 fill:#FADBD8,stroke:#D8B8B8,color:#6B4E4E
+style D3 fill:#FADBD8,stroke:#D8B8B8,color:#6B4E4E
+style E1 fill:#D6EAF8,stroke:#A8C8D8,color:#4A678D
+style E2 fill:#D6EAF8,stroke:#A8C8D8,color:#4A678D
+style E3 fill:#D6EAF8,stroke:#A8C8D8,color:#4A678D

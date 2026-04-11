@@ -16,35 +16,6 @@ from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass, field
 
 
-def remove_emoji(text: str) -> str:
-    """
-    去除文本中的emoji表情符号（不影响中文和换行符）
-    """
-    # emoji unicode范围（精确范围，不包含中文）
-    emoji_pattern = re.compile(
-        "["
-        "\U0001F600-\U0001F64F"  # emoticons (😀-🙏)
-        "\U0001F300-\U0001F5FF"  # symbols & pictographs (🌀-🗿)
-        "\U0001F680-\U0001F6FF"  # transport & map symbols (🚀-🛿)
-        "\U0001F1E0-\U0001F1FF"  # flags (iOS) (🇦-🇿)
-        "\U0001F900-\U0001F9FF"  # supplemental symbols (🤐-🧿)
-        "\U0001FA00-\U0001FA6F"  # chess symbols (🤀-🩯)
-        "\U0001FA70-\U0001FAFF"  # extended pictographs (🩰-🫿)
-        "\U00002600-\U000026FF"  # misc symbols (☀-⛿)
-        "\U00002700-\U000027BF"  # dingbats (✀-➿)
-        "\U0000FE00-\U0000FE0F"  # variation selectors
-        "\U0001F000-\U0001F02F"  # mahjong tiles
-        "\U0001F0A0-\U0001F0FF"  # playing cards
-        "]+",
-        flags=re.UNICODE
-    )
-    result = emoji_pattern.sub('', text)
-    # 清理多余空格（保留换行符）
-    result = re.sub(r'[^\S\n]+', ' ', result)  # 非换行空白替换为单个空格
-    result = re.sub(r'\n+', '\n', result)  # 多个换行符合并为一个
-    return result.strip()
-
-
 @dataclass
 class Node:
     """节点数据结构"""
@@ -83,10 +54,7 @@ def parse_node_content(content: str) -> Tuple[str, str]:
     
     # 清理多余引号
     content = content.strip().strip('"').strip("'")
-    
-    # 去除emoji
-    content = remove_emoji(content)
-    
+
     if '\n' in content:
         parts = content.split('\n')
         title = parts[0].strip()

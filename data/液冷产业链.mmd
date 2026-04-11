@@ -1,0 +1,81 @@
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#FFE5D9',
+    'primaryTextColor': '#5D4E37',
+    'primaryBorderColor': '#E8C4B8',
+    'lineColor': '#B8A99A',
+    'secondaryColor': '#D4E7D4',
+    'secondaryTextColor': '#4A6741',
+    'secondaryBorderColor': '#A8C8A8',
+    'tertiaryColor': '#E8DFF5',
+    'tertiaryTextColor': '#5D4E6D',
+    'tertiaryBorderColor': '#C8B8D8',
+    'background': '#FFFBF5',
+    'mainBkg': '#FFF5EE',
+    'nodeBorder': '#E8D5C4',
+    'clusterBkg': '#F5F0EB',
+    'clusterBorder': '#D4C4B8',
+    'titleColor': '#6B5B4F',
+    'edgeLabelBackground': '#FFF9F0',
+    'fontFamily': 'PingFang SC, Microsoft YaHei, sans-serif',
+    'fontSize': '15px'
+  },
+  'flowchart': {
+    'curve': 'basis',
+    'padding': 20,
+    'nodeSpacing': 50,
+    'rankSpacing': 80,
+    'diagramPadding': 30
+  }
+}}%%
+flowchart TD
+    subgraph 上游材料["🏭 上游材料层"]
+        M1["冷却液"] --> M2["氟化液/硅基液"]
+        M3["金属材料"] --> M4["铜/铝/金刚石铜"]
+        M5["电子元器件"] --> M6["泵/阀/传感器"]
+    end
+    
+    subgraph 核心部件["⚙️ 核心部件层"]
+        C1["液冷板"] --> C2["微通道冷板"]
+        C3["CDU分配单元"] --> C4["冷却分配系统"]
+        C5["快接头"] --> C6["UQD连接器"]
+        C7["Manifold歧管"] --> C8["管路系统"]
+    end
+    
+    subgraph 系统集成["🔧 系统集成层"]
+        S1["液冷服务器"] --> S2["整机柜方案"]
+        S3["温控系统"] --> S4["数据中心级方案"]
+    end
+    
+    subgraph 下游应用["🖥️ 下游应用层"]
+        D1["AI智算中心"] --> D2["大模型训练"]
+        D3["超算中心"] --> D4["科学计算"]
+        D5["云计算数据中心"] --> D6["互联网服务"]
+    end
+    
+    M2 --> C1
+    M4 --> C1
+    M6 --> C3
+    
+    C2 --> S1
+    C4 --> S3
+    C6 --> S1
+    C8 --> S1
+    
+    S2 --> D1
+    S4 --> D3
+    S2 --> D5
+    
+    style M1 fill:#D4E7D4,stroke:#A8C8A8,color:#4A6741
+    style M3 fill:#D4E7D4,stroke:#A8C8A8,color:#4A6741
+    style M5 fill:#D4E7D4,stroke:#A8C8A8,color:#4A6741
+    style C1 fill:#E8DFF5,stroke:#C8B8D8,color:#5D4E6D
+    style C3 fill:#E8DFF5,stroke:#C8B8D8,color:#5D4E6D
+    style C5 fill:#E8DFF5,stroke:#C8B8D8,color:#5D4E6D
+    style C7 fill:#E8DFF5,stroke:#C8B8D8,color:#5D4E6D
+    style S1 fill:#FFE5D9,stroke:#E8C4B8,color:#5D4E37
+    style S3 fill:#FFE5D9,stroke:#E8C4B8,color:#5D4E37
+    style D1 fill:#D6EAF8,stroke:#A8C8D8,color:#4A678D
+    style D3 fill:#D6EAF8,stroke:#A8C8D8,color:#4A678D
+    style D5 fill:#D6EAF8,stroke:#A8C8D8,color:#4A678D

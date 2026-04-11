@@ -1,0 +1,56 @@
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#FFE5D9',
+    'primaryTextColor': '#5D4E37',
+    'primaryBorderColor': '#E8C4B8',
+    'lineColor': '#B8A99A',
+    'secondaryColor': '#D4E7D4',
+    'secondaryTextColor': '#4A6741',
+    'secondaryBorderColor': '#A8C8A8',
+    'tertiaryColor': '#E8DFF5',
+    'tertiaryTextColor': '#5D4E6D',
+    'tertiaryBorderColor': '#C8B8D8',
+    'background': '#FFFBF5',
+    'mainBkg': '#FFF5EE',
+    'nodeBorder': '#E8D5C4',
+    'clusterBkg': '#F5F0EB',
+    'clusterBorder': '#D4C4B8',
+    'titleColor': '#6B5B4F',
+    'edgeLabelBackground': '#FFF9F0',
+    'fontFamily': 'PingFang SC, Microsoft YaHei, sans-serif',
+    'fontSize': '15px'
+  },
+  'flowchart': {
+    'curve': 'basis',
+    'padding': 20,
+    'nodeSpacing': 50,
+    'rankSpacing': 80,
+    'diagramPadding': 30
+  }
+}}%%
+flowchart TD
+    subgraph 上游["🏭 上游原厂"]
+        A["三星/SK海力士/美光\n产能转向HBM"] --> B["消费级DRAM\n供给锐减"]
+    end
+    
+    subgraph 中游["⚙️ 中游传导"]
+        B --> C["合约价\nQ1涨90-95%"]
+        C --> D["模组厂商\n量价齐升"]
+    end
+    
+    subgraph 下游["🛒 下游终端"]
+        D --> E["PC厂商调价\n500-1500元"]
+        D --> F["手机厂商调价\n300-500元"]
+        D --> G["AI服务器\n成本传导"]
+    end
+    
+    subgraph 宏观影响["📊 宏观影响"]
+        E --> H["PPI止跌企稳"]
+        F --> I["CPI通讯工具\n分项回升"]
+    end
+    
+    style A fill:#FFE5D9,stroke:#E8C4B8,color:#5D4E37
+    style C fill:#FFF3CD,stroke:#E8D8A8,color:#6B5B4F
+    style D fill:#D4E7D4,stroke:#A8C8A8,color:#4A6741
+    style G fill:#E8DFF5,stroke:#C8B8D8,color:#5D4E6D

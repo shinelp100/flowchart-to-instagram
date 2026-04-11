@@ -1,0 +1,50 @@
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#FFE5D9',
+    'primaryTextColor': '#5D4E37',
+    'primaryBorderColor': '#E8C4B8',
+    'lineColor': '#B8A99A',
+    'secondaryColor': '#D4E7D4',
+    'secondaryTextColor': '#4A6741',
+    'secondaryBorderColor': '#A8C8A8',
+    'tertiaryColor': '#E8DFF5',
+    'tertiaryTextColor': '#5D4E6D',
+    'tertiaryBorderColor': '#C8B8D8',
+    'background': '#FFFBF5',
+    'mainBkg': '#FFF5EE',
+    'nodeBorder': '#E8D5C4',
+    'clusterBkg': '#F5F0EB',
+    'clusterBorder': '#D4C4B8',
+    'titleColor': '#6B5B4F',
+    'edgeLabelBackground': '#FFF9F0',
+    'fontFamily': 'PingFang SC, Microsoft YaHei, sans-serif',
+    'fontSize': '15px'
+  },
+  'flowchart': {
+    'curve': 'basis',
+    'padding': 20,
+    'nodeSpacing': 50,
+    'rankSpacing': 80,
+    'diagramPadding': 30
+  }
+}}%%
+flowchart LR
+    subgraph 过去["📅 2025年前"]
+        A["消费电子驱动\n手机+PC为主"] --> B["强周期性\n价格波动大"]
+    end
+    
+    subgraph 现在["📅 2026年"]
+        C["AI算力驱动\n数据中心为主"] --> D["成长性增强\n周期性弱化"]
+    end
+    
+    subgraph 未来["📅 2027-2028年"]
+        E["Agent AI时代\nKV Cache爆发"] --> F["存力为核心\n长周期范式"]
+    end
+    
+    A -.->|"需求结构质变"| C
+    C -.->|"技术演进"| E
+    
+    style A fill:#D6EAF8,stroke:#A8C8D8,color:#4A678D
+    style C fill:#E8DFF5,stroke:#C8B8D8,color:#5D4E6D
+    style E fill:#D4E7D4,stroke:#A8C8A8,color:#4A6741
