@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>储能产业链 - 题材调研员</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    }
+    
+    body {
+      background: linear-gradient(135deg, 
+        #833ab4 0%, 
+        #fd1d1d 50%, 
+        #fcb045 100%
+      );
+      min-height: 100vh;
+    }
+    
+    /* 2×2水印网格 */
+    .watermark-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      grid-template-rows: repeat(2, 1fr);
+      align-items: center;
+      justify-items: center;
+    }
+    
+    .watermark-text {
+      font-size: 180px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.06);
+      white-space: nowrap;
+      transform: rotate(-20deg);
+      user-select: none;
+    }
+    
+    /* 卡片底色 - 带渐变方向与背景一致 */
+    .card {
+      background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.88) 0%, 
+        rgba(255, 255, 255, 0.92) 50%,
+        rgba(255, 255, 255, 0.88) 100%
+      );
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    
+    /* 不同模块的卡片微调色调，与背景呼应 */
+    .card-1 {
+      background: linear-gradient(135deg, 
+        rgba(255, 240, 250, 0.9) 0%, 
+        rgba(255, 245, 255, 0.92) 50%,
+        rgba(255, 250, 245, 0.9) 100%
+      );
+    }
+    
+    .card-2 {
+      background: linear-gradient(135deg, 
+        rgba(255, 235, 245, 0.9) 0%, 
+        rgba(255, 240, 250, 0.92) 50%,
+        rgba(255, 245, 240, 0.9) 100%
+      );
+    }
+    
+    .card-3 {
+      background: linear-gradient(135deg, 
+        rgba(255, 230, 240, 0.9) 0%, 
+        rgba(255, 235, 245, 0.92) 50%,
+        rgba(255, 240, 235, 0.9) 100%
+      );
+    }
+    
+    .card-4 {
+      background: linear-gradient(135deg, 
+        rgba(255, 235, 235, 0.9) 0%, 
+        rgba(255, 230, 240, 0.92) 50%,
+        rgba(255, 240, 230, 0.9) 100%
+      );
+    }
+    
+    .node-card {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 12px;
+      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+    }
+    
+    .section-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin-bottom: 14px;
+    }
+    
+    .node-title {
+      font-size: 19px;
+      font-weight: 600;
+      color: #1a1a1a;
+      line-height: 1.4;
+    }
+    
+    .node-desc {
+      font-size: 15px;
+      font-weight: 400;
+      color: #3a3a3a;
+      line-height: 1.5;
+      margin-top: 6px;
+    }
+    
+    /* Instagram风格节点颜色 - 柔和配色 */
+    .node-1 { background: linear-gradient(135deg, #fef7f7 0%, #fce8e8 100%); }
+    .node-2 { background: linear-gradient(135deg, #fef9f3 0%, #fde9d9 100%); }
+    .node-3 { background: linear-gradient(135deg, #fef8f0 0%, #fde5cc 100%); }
+    .node-4 { background: linear-gradient(135deg, #f4fef7 0%, #dcf8e3 100%); }
+    .node-5 { background: linear-gradient(135deg, #f3f7fe 0%, #dce5f8 100%); }
+    .node-6 { background: linear-gradient(135deg, #f8f5fe 0%, #e8dcf8 100%); }
+  </style>
+</head>
+<body class="p-5">
+  <!-- 背景水印 - 2×2网格 -->
+  <div class="watermark-bg">
+    <div class="watermark-text">题材调研员</div>
+    <div class="watermark-text">题材调研员</div>
+    <div class="watermark-text">题材调研员</div>
+    <div class="watermark-text">题材调研员</div>
+  </div>
+  
+  <div class="relative z-10 max-w-[800px] mx-auto space-y-5">
+    
+    <!-- ========== 区块1：修改标题和节点内容 ========== -->
+    <div class="card card-1 p-6">
+      <div class="section-title">上游：材料与电芯</div>
+      <div class="flex items-center justify-between gap-4">
+        <div class="node-card node-1 p-5 flex-1 text-center">
+          <div class="node-title">碳酸锂</div>
+          <div class="node-desc">锂精矿</div>
+        </div>
+        
+        <div class="node-card node-2 p-5 flex-1 text-center">
+          <div class="node-title">正极材料</div>
+          <div class="node-desc">负极材料<br>隔膜电解液</div>
+        </div>
+        
+        <div class="node-card node-3 p-5 flex-1 text-center">
+          <div class="node-title">电芯制造</div>
+          <div class="node-desc">宁德时代<br>比亚迪·亿纬</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- ========== 区块2 ========== -->
+    <div class="card card-2 p-6">
+      <div class="section-title">中游：系统集成与变流器</div>
+      <div class="flex items-center justify-between gap-4">
+        <div class="node-card node-3 p-5 flex-1 text-center">
+          <div class="node-title">储能电池系统</div>
+          <div class="node-desc">PACK + BMS</div>
+        </div>
+        
+        <div class="node-card node-4 p-5 flex-1 text-center">
+          <div class="node-title">储能变流器</div>
+          <div class="node-desc">PCS<br>阳光电源·华为·上能</div>
+        </div>
+        
+        <div class="node-card node-3 p-5 flex-1 text-center">
+          <div class="node-title">系统集成商</div>
+          <div class="node-desc">海博思创<br>远景·电工时代</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- ========== 区块3：并排布局 ========== -->
+    <div class="flex gap-5">
+      <!-- 左侧大卡片 -->
+      <div class="card card-3 p-6 flex-[2]">
+        <div class="section-title">下游：应用场景</div>
+        <div class="space-y-4">
+          <div class="flex gap-4">
+            <div class="node-card node-5 p-4 flex-1 text-center">
+              <div class="node-title">电源侧</div>
+              <div class="node-desc">新能源配储</div>
+            </div>
+            <div class="node-card node-5 p-4 flex-1 text-center">
+              <div class="node-title">电网侧</div>
+              <div class="node-desc">独立储能/调频</div>
+            </div>
+            <div class="node-card node-5 p-4 flex-1 text-center">
+              <div class="node-title">用户侧</div>
+              <div class="node-desc">工商业/家庭</div>
+            </div>
+          </div>
+          <div class="flex gap-4">
+            <div class="node-card node-6 p-4 flex-1 text-center">
+              <div class="node-title">电力市场交易</div>
+            </div>
+            <div class="node-card node-6 p-4 flex-1 text-center">
+              <div class="node-title">虚拟电厂</div>
+              <div class="node-desc">聚合调度</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 右侧小卡片 -->
+      <div class="card card-4 p-6 flex-1">
+        <div class="section-title">政策驱动</div>
+        <div class="space-y-4">
+          <div class="node-card node-1 p-4 text-center">
+            <div class="node-title">国家能源局</div>
+            <div class="node-desc">安全专项监管</div>
+          </div>
+          <div class="node-card node-2 p-4 text-center">
+            <div class="node-title">新能源电价</div>
+            <div class="node-desc">市场化改革</div>
+          </div>
+          <div class="node-card node-6 p-4 text-center">
+            <div class="node-title">虚拟电厂</div>
+            <div class="node-desc">发展指导意见</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- ========== 区块4 ========== -->
+    <div class="card card-4 p-6">
+      <div class="section-title">出海方向</div>
+      <div class="flex gap-5 justify-center">
+        <div class="node-card node-5 p-5 flex-1 max-w-[240px] text-center">
+          <div class="node-title">北美</div>
+          <div class="node-desc">IRA 壁垒</div>
+        </div>
+        <div class="node-card node-5 p-5 flex-1 max-w-[240px] text-center">
+          <div class="node-title">欧洲</div>
+          <div class="node-desc">碳足迹门槛</div>
+        </div>
+        <div class="node-card node-6 p-5 flex-1 max-w-[240px] text-center">
+          <div class="node-title">中东/东南亚</div>
+          <div class="node-desc">新兴市场</div>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+</body>
+</html>
