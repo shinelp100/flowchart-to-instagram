@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 
 def remove_emoji(text: str) -> str:
     """
-    去除文本中的emoji表情符号（不影响中文）
+    去除文本中的emoji表情符号（不影响中文和换行符）
     """
     # emoji unicode范围（精确范围，不包含中文）
     emoji_pattern = re.compile(
@@ -39,9 +39,10 @@ def remove_emoji(text: str) -> str:
         flags=re.UNICODE
     )
     result = emoji_pattern.sub('', text)
-    # 清理多余空格（emoji去除后可能留下）
-    result = re.sub(r'\s+', ' ', result).strip()
-    return result
+    # 清理多余空格（保留换行符）
+    result = re.sub(r'[^\S\n]+', ' ', result)  # 非换行空白替换为单个空格
+    result = re.sub(r'\n+', '\n', result)  # 多个换行符合并为一个
+    return result.strip()
 
 
 @dataclass
@@ -310,10 +311,13 @@ def generate_html(flowchart: Flowchart) -> str:
             nodes_html = '<div class="flex items-center justify-between gap-4">'
             for n_idx, node in enumerate(sg.nodes):
                 node_class = node_colors[n_idx % len(node_colors)]
-                desc_html = f'<div class="node-desc">{node.desc}</div>' if node.desc else ''
+                # 将换行符转换为 <br> 标签
+                title_br = node.title.replace('\n', '<br>')
+                desc_br = node.desc.replace('\n', '<br>') if node.desc else ''
+                desc_html = f'<div class="node-desc">{desc_br}</div>' if desc_br else ''
                 nodes_html += f'''
                 <div class="node-card {node_class} p-5 flex-1 text-center">
-                  <div class="node-title">{node.title}</div>
+                  <div class="node-title">{title_br}</div>
                   {desc_html}
                 </div>'''
             nodes_html += '</div>'
@@ -328,10 +332,12 @@ def generate_html(flowchart: Flowchart) -> str:
             nodes_html += '<div class="flex gap-4">'
             for n_idx, node in enumerate(first_row):
                 node_class = node_colors[n_idx % len(node_colors)]
-                desc_html = f'<div class="node-desc">{node.desc}</div>' if node.desc else ''
+                title_br = node.title.replace('\n', '<br>')
+                desc_br = node.desc.replace('\n', '<br>') if node.desc else ''
+                desc_html = f'<div class="node-desc">{desc_br}</div>' if desc_br else ''
                 nodes_html += f'''
                 <div class="node-card {node_class} p-4 flex-1 text-center">
-                  <div class="node-title">{node.title}</div>
+                  <div class="node-title">{title_br}</div>
                   {desc_html}
                 </div>'''
             nodes_html += '</div>'
@@ -341,10 +347,12 @@ def generate_html(flowchart: Flowchart) -> str:
                 nodes_html += '<div class="flex gap-4">'
                 for n_idx, node in enumerate(second_row):
                     node_class = node_colors[(n_idx + 3) % len(node_colors)]
-                    desc_html = f'<div class="node-desc">{node.desc}</div>' if node.desc else ''
+                    title_br = node.title.replace('\n', '<br>')
+                    desc_br = node.desc.replace('\n', '<br>') if node.desc else ''
+                    desc_html = f'<div class="node-desc">{desc_br}</div>' if desc_br else ''
                     nodes_html += f'''
                     <div class="node-card {node_class} p-4 flex-1 text-center">
-                      <div class="node-title">{node.title}</div>
+                      <div class="node-title">{title_br}</div>
                       {desc_html}
                     </div>'''
                 nodes_html += '</div>'
@@ -362,13 +370,16 @@ def generate_html(flowchart: Flowchart) -> str:
                 nodes_html += '<div class="flex gap-4">'
                 for n_idx, node in enumerate(row):
                     node_class = node_colors[(row_idx * 3 + n_idx) % len(node_colors)]
-                    desc_html = f'<div class="node-desc">{node.desc}</div>' if node.desc else ''
+                    title_br = node.title.replace('\n', '<br>')
+                    desc_br = node.desc.replace('\n', '<br>') if node.desc else ''
+                    desc_html = f'<div class="node-desc">{desc_br}</div>' if desc_br else ''
                     nodes_html += f'''
                     <div class="node-card {node_class} p-4 flex-1 text-center">
-                      <div class="node-title">{node.title}</div>
+                      <div class="node-title">{title_br}</div>
                       {desc_html}
                     </div>'''
                 nodes_html += '</div>'
+            
             nodes_html += '</div>'
         
         # 生成卡片
