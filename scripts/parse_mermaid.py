@@ -283,7 +283,7 @@ def generate_html(flowchart: Flowchart) -> str:
       box-shadow: 0 3px 12px rgba(0,0,0,0.05);
       border: 1px solid rgba(255,255,255,0.5);
     }
-    .section-title { font-size: 20px; font-weight: 700; color: #1a1a1a; margin-bottom: 14px; text-align: center; }
+    .section-title { font-size: 24px; font-weight: 700; color: #1a1a1a; margin-bottom: 14px; text-align: center; }
     .node-title { font-size: 19px; font-weight: 600; color: #1a1a1a; line-height: 1.4; }
     .node-desc { font-size: 15px; font-weight: 400; color: #3a3a3a; line-height: 1.5; margin-top: 6px; }
     .node-1 { background: linear-gradient(135deg, #fef7f7 0%, #fce8e8 100%); }
