@@ -87,8 +87,22 @@ def parse_mermaid(text: str) -> Flowchart:
     current_subgraph = None
     node_order_in_sg = {}  # 记录节点在哪个 subgraph 以及顺序
     
+    # 跟踪是否在 %%{init}%% 配置块内
+    in_init_block = False
+    
     for line in lines:
         line_stripped = line.strip()
+        
+        # 检测 %%{init}%% 配置块开始
+        if line_stripped.startswith('%%{init'):
+            in_init_block = True
+            continue
+        
+        # 检测 %%{init}%% 配置块结束
+        if in_init_block:
+            if '%%' in line_stripped and '}' in line_stripped:
+                in_init_block = False
+            continue
         
         # 跳过注释和空行
         if line_stripped.startswith('%%') or not line_stripped:
@@ -98,11 +112,18 @@ def parse_mermaid(text: str) -> Flowchart:
         if line_stripped.startswith('flowchart') or line_stripped.startswith('graph'):
             continue
         
-        # 检测 subgraph 开始 - 格式: subgraph SG_ID["标题"]
-        sg_match = re.match(r'subgraph\s+([A-Za-z0-9_]+)\s*[\[\("]+([^\]\)]+)[\]\)"]+', line_stripped)
+        # 跳过 style 定义行
+        if line_stripped.startswith('style'):
+            continue
+        
+        # 检测 subgraph 开始 - 格式: subgraph SG_ID["标题"] 或 subgraph 中文ID["标题"]
+        # 支持中文ID（如 "上游"、"中游"）
+        sg_match = re.match(r'subgraph\s+(\S+)\s*[\[\("]+([^\]\)]+)[\]\)"]+', line_stripped)
         if sg_match:
             sg_id = sg_match.group(1)
-            sg_title = parse_node_content(sg_match.group(2))[0]
+            sg_title_raw = sg_match.group(2)
+            # 清理标题中的emoji（可选保留）
+            sg_title = parse_node_content(sg_title_raw)[0]
             current_subgraph = Subgraph(id=sg_id, title=sg_title)
             flowchart.subgraphs.append(current_subgraph)
             continue
@@ -113,30 +134,38 @@ def parse_mermaid(text: str) -> Flowchart:
             continue
         
         # 解析节点定义 - 格式: A["内容"] 或 A("内容")
-        node_match = re.search(r'([A-Za-z0-9_]+)\s*[\[\("]+([^\]\)]+)[\]\)"]+', line_stripped)
-        if node_match:
-            node_id = node_match.group(1)
-            content = node_match.group(2)
-            title, desc = parse_node_content(content)
-            
-            # 创建节点
-            node = Node(id=node_id, title=title, desc=desc)
-            
-            # 如果在 subgraph 内，分配到当前 subgraph
-            if current_subgraph:
-                node.subgraph = current_subgraph.id
-                current_subgraph.nodes.append(node)
-            
-            # 记录到全局节点字典
-            flowchart.all_nodes[node_id] = node
-            continue
+        # 使用 findall 找出所有节点定义（包括连接行中的）
+        node_matches = re.findall(r'([A-Za-z0-9_]+)\s*[\[\("]+([^\]\)]+)[\]\)"]+', line_stripped)
+        for node_id, content in node_matches:
+            if node_id not in flowchart.all_nodes:
+                title, desc = parse_node_content(content)
+                node = Node(id=node_id, title=title, desc=desc)
+                
+                if current_subgraph:
+                    node.subgraph = current_subgraph.id
+                    current_subgraph.nodes.append(node)
+                
+                flowchart.all_nodes[node_id] = node
         
-        # 解析连接关系（仅用于参考，不影响节点分配）
-        conn_match = re.search(r'([A-Za-z0-9_]+)\s*[-<>]+\s*([A-Za-z0-9_]+)', line_stripped)
-        if conn_match:
-            from_id = conn_match.group(1)
-            to_id = conn_match.group(2)
+        # 解析连接关系 - 使用 findall 找出所有连接
+        conn_matches = re.findall(r'([A-Za-z0-9_]+)\s*[-<>]+\s*([A-Za-z0-9_]+)', line_stripped)
+        for from_id, to_id in conn_matches:
             flowchart.all_connections.append((from_id, to_id))
+            
+            # 如果节点没有定义内容，创建一个占位节点
+            if from_id not in flowchart.all_nodes:
+                placeholder_node = Node(id=from_id, title=from_id)
+                if current_subgraph:
+                    placeholder_node.subgraph = current_subgraph.id
+                    current_subgraph.nodes.append(placeholder_node)
+                flowchart.all_nodes[from_id] = placeholder_node
+            
+            if to_id not in flowchart.all_nodes:
+                placeholder_node = Node(id=to_id, title=to_id)
+                if current_subgraph:
+                    placeholder_node.subgraph = current_subgraph.id
+                    current_subgraph.nodes.append(placeholder_node)
+                flowchart.all_nodes[to_id] = placeholder_node
     
     # 处理未分配到任何 subgraph 的节点（放在最后一个 subgraph）
     unassigned_nodes = [n for n in flowchart.all_nodes.values() if not n.subgraph]
