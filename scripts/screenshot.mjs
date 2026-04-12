@@ -8,10 +8,16 @@ import { chromium } from 'playwright';
 import { resolve } from 'path';
 
 async function screenshot(inputPath, outputPath) {
-  const browser = await chromium.launch();
-  const page = await browser.newPage({
-    viewport: { width: 820, height: 600 }
+  const browser = await chromium.launch({
+    args: ['--force-device-scale-factor=1']
   });
+  const context = await browser.newContext({
+    viewport: { width: 820, height: 2000 },  // 高度设大，让内容自然展开
+    deviceScaleFactor: 1,
+    isMobile: false,
+    hasTouch: false
+  });
+  const page = await context.newPage();
   
   // Resolve absolute path for input
   const absoluteInput = inputPath.startsWith('/') ? inputPath : resolve(process.cwd(), inputPath);
@@ -22,10 +28,13 @@ async function screenshot(inputPath, outputPath) {
   // Wait for fonts to load
   await page.waitForTimeout(2000);
   
-  // Take full page screenshot
+  // 获取页面实际高度（使用 body.scrollHeight 包含水印区域）
+  const height = await page.evaluate(() => document.body.scrollHeight);
+  
+  // Take screenshot with clip to force 820px width
   await page.screenshot({
     path: absoluteOutput,
-    fullPage: true
+    clip: { x: 0, y: 0, width: 820, height: height }
   });
   
   await browser.close();

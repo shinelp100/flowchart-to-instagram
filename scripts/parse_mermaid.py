@@ -35,6 +35,9 @@ EMOJI_KEYWORDS = {
     
     # 下游应用层
     'AI': '🤖', '智算中心': '🤖', '大模型': '🧠', '训练': '🧠',
+    '智能驾驶': '🚗', '自动驾驶': '🚗', '驾驶': '🚗',
+    '具身机器人': '🤖', '机器人': '🤖',
+    '科学研究': '🔬', '研究': '🔬', '科研': '🔬',
     '超算': '⚡', '科学计算': '⚡',
     '云计算': '☁️', '互联网': '🌐', '云服务': '☁️',
     
@@ -341,12 +344,13 @@ def parse_mermaid(text: str) -> Flowchart:
 
 def analyze_hierarchical_structure(nodes: List[Node], connections: List[Tuple[str, str]]) -> List[List[Node]]:
     """
-    分析层级结构（父节点→多个子节点）
+    分析层级结构，使用链路追踪方法
     
-    适用于树形结构，如 A→A1, A→A2, B→B1, B→B2
-    每个父节点和其所有子节点组成一个"列"，父节点在上，子节点在下
+    从每个根节点（无入边的节点）开始，追踪完整链路
+    支持多层级链：A→B→C→D
+    支持分叉：A→B, A→C（形成多条链路）
     
-    返回: 列列表，每列是节点列表（父节点+子节点）
+    返回: 链路列表，每条链路是节点列表（按连接顺序）
     """
     node_ids = [n.id for n in nodes]
     node_map = {n.id: n for n in nodes}
@@ -356,8 +360,8 @@ def analyze_hierarchical_structure(nodes: List[Node], connections: List[Tuple[st
                       if from_id in node_ids and to_id in node_ids]
     
     # 构建父子关系映射
-    parent_to_children = {}
-    child_to_parent = {}
+    parent_to_children: Dict[str, List[str]] = {}
+    child_to_parent: Dict[str, str] = {}
     
     for from_id, to_id in sg_connections:
         if from_id not in parent_to_children:
@@ -365,74 +369,59 @@ def analyze_hierarchical_structure(nodes: List[Node], connections: List[Tuple[st
         parent_to_children[from_id].append(to_id)
         child_to_parent[to_id] = from_id
     
-    # 找出父节点（有子节点但自己不是子节点）
-    parent_nodes = [n for n in nodes if n.id in parent_to_children and n.id not in child_to_parent]
-    
-    # 找出中间节点（既是父节点又是子节点）
-    middle_nodes = [n for n in nodes if n.id in parent_to_children and n.id in child_to_parent]
-    
-    # 找出叶子节点（只有父节点没有子节点）
-    leaf_nodes = [n for n in nodes if n.id not in parent_to_children and n.id in child_to_parent]
+    # 找出根节点（没有父节点的节点）
+    root_nodes = [n for n in nodes if n.id not in child_to_parent]
     
     # 找出孤立节点（既没有父节点也没有子节点）
     orphan_nodes = [n for n in nodes if n.id not in parent_to_children and n.id not in child_to_parent]
     
-    columns = []
+    chains = []
     used_nodes = set()
     
-    # 处理父节点列
-    for parent in parent_nodes:
-        column = [parent]
-        used_nodes.add(parent.id)
+    # 从每个根节点追踪链路（支持分叉成多条链）
+    for root in root_nodes:
+        if root.id in used_nodes:
+            continue
         
-        # 添加所有子节点
-        children_ids = parent_to_children.get(parent.id, [])
-        for child_id in children_ids:
-            child = node_map.get(child_id)
-            if child and child_id not in used_nodes:
-                column.append(child)
-                used_nodes.add(child_id)
+        # BFS追踪：从根节点开始，每个子节点形成新链
+        # 使用队列：(当前节点, 当前链路)
+        queue = [(root.id, [root])]
+        used_nodes.add(root.id)
         
-        columns.append(column)
-    
-    # 处理中间节点（作为子节点跟随其父节点）
-    for middle in middle_nodes:
-        if middle.id not in used_nodes:
-            # 找出其父节点
-            parent_id = child_to_parent.get(middle.id)
-            if parent_id:
-                # 找出父节点所在的列，添加中间节点
-                for col in columns:
-                    if col[0].id == parent_id:
-                        col.append(middle)
-                        used_nodes.add(middle.id)
-                        # 添加中间节点的子节点
-                        children_ids = parent_to_children.get(middle.id, [])
-                        for child_id in children_ids:
-                            child = node_map.get(child_id)
-                            if child and child_id not in used_nodes:
-                                col.append(child)
-                                used_nodes.add(child_id)
-                        break
-    
-    # 处理叶子节点（跟随其父节点）
-    for leaf in leaf_nodes:
-        if leaf.id not in used_nodes:
-            parent_id = child_to_parent.get(leaf.id)
-            if parent_id:
-                for col in columns:
-                    if col[0].id == parent_id:
-                        col.append(leaf)
-                        used_nodes.add(leaf.id)
-                        break
+        while queue:
+            current_id, current_chain = queue.pop(0)
+            
+            children = parent_to_children.get(current_id, [])
+            
+            if not children:
+                # 叶子节点，链路结束
+                chains.append(current_chain)
+            else:
+                # 有子节点，继续追踪
+                for child_id in children:
+                    if child_id in used_nodes:
+                        # 子节点已被其他链使用，当前链结束
+                        chains.append(current_chain)
+                    else:
+                        child_node = node_map.get(child_id)
+                        if child_node:
+                            new_chain = current_chain + [child_node]
+                            used_nodes.add(child_id)
+                            queue.append((child_id, new_chain))
     
     # 处理孤立节点
     for orphan in orphan_nodes:
         if orphan.id not in used_nodes:
-            columns.append([orphan])
+            chains.append([orphan])
             used_nodes.add(orphan.id)
     
-    return columns
+    # 处理未被追踪的节点（可能是中间节点被跳过）
+    for node in nodes:
+        if node.id not in used_nodes:
+            chains.append([node])
+            used_nodes.add(node.id)
+    
+    return chains
 
 
 def analyze_chains_in_subgraph(nodes: List[Node], connections: List[Tuple[str, str]]) -> List[List[Node]]:
@@ -556,12 +545,16 @@ def generate_html(flowchart: Flowchart) -> str:
       padding-bottom: 20px;
     }
     .watermark-bg {
-      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
       pointer-events: none; z-index: 0;
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       grid-template-rows: repeat(2, 1fr);
       align-items: center; justify-items: center;
+    }
+    .content-wrapper {
+      position: relative;
+      min-height: fit-content;
     }
     .watermark-text {
       font-size: 180px; font-weight: 700;
@@ -600,129 +593,278 @@ def generate_html(flowchart: Flowchart) -> str:
   </style>
 </head>
 <body class="p-5">
-  <div class="watermark-bg">
-    <div class="watermark-text">''' + flowchart.watermark + '''</div>
-    <div class="watermark-text">''' + flowchart.watermark + '''</div>
-    <div class="watermark-text">''' + flowchart.watermark + '''</div>
-    <div class="watermark-text">''' + flowchart.watermark + '''</div>
-  </div>
-  <div class="relative z-10 max-w-[800px] mx-auto space-y-5">
+  <div class="content-wrapper">
+    <div class="watermark-bg" id="watermark-bg">
+      <div class="watermark-text">''' + flowchart.watermark + '''</div>
+      <div class="watermark-text">''' + flowchart.watermark + '''</div>
+      <div class="watermark-text">''' + flowchart.watermark + '''</div>
+      <div class="watermark-text">''' + flowchart.watermark + '''</div>
+    </div>
+    <div class="relative z-10 max-w-[800px] mx-auto space-y-5" id="content">
 ''')
     
     # 生成每个 subgraph 的卡片
     for idx, sg in enumerate(flowchart.subgraphs):
         card_class = card_colors[idx % len(card_colors)]
         
-        # 优先尝试层级结构分析（树形：父→多子）
-        columns = analyze_hierarchical_structure(sg.nodes, flowchart.all_connections)
+        # 分析节点连接关系
+        node_ids = [n.id for n in sg.nodes]
+        node_map = {n.id: n for n in sg.nodes}
         
-        # 如果只有单列且每列只有1-2节点，可能是线性链路，改用链路分析
-        if len(columns) == 1 or (len(columns) > 1 and all(len(col) <= 2 for col in columns)):
-            chains = analyze_chains_in_subgraph(sg.nodes, flowchart.all_connections)
-            use_hierarchy = False
-        else:
-            use_hierarchy = True
+        # 找出 subgraph 内的连接
+        sg_connections = [(from_id, to_id) for from_id, to_id in flowchart.all_connections 
+                          if from_id in node_ids and to_id in node_ids]
         
-        # 根据 use_hierarchy 决定布局
-        if use_hierarchy:
-            # 层级布局：父节点在上（横向），子节点在下（横向并列）
-            # 第一行：所有父节点横向排列
-            nodes_html = '<div class="space-y-4">'
+        # 构建父子关系映射
+        parent_to_children: Dict[str, List[str]] = {}
+        child_to_parent: Dict[str, str] = {}
+        for from_id, to_id in sg_connections:
+            if from_id not in parent_to_children:
+                parent_to_children[from_id] = []
+            parent_to_children[from_id].append(to_id)
+            child_to_parent[to_id] = from_id
+        
+        # 找出分叉节点（有多个子节点的节点）
+        fork_nodes = [n for n in sg.nodes if len(parent_to_children.get(n.id, [])) >= 2]
+        
+        # 找出孤立节点（无连接）
+        orphan_nodes = [n for n in sg.nodes if n.id not in parent_to_children and n.id not in child_to_parent]
+        
+        # 检测是否是"终端应用"类型：
+        # 1. 全是孤立节点，节点数>=4
+        # 2. 或者：只有1个孤立节点，但节点内容有多行（换行分隔>=3行）
+        is_terminal_style = False
+        terminal_items = []
+        
+        if len(orphan_nodes) >= 4 and len(sg_connections) == 0:
+            is_terminal_style = True
+            terminal_items = [(n.title, n.desc, n.icon) for n in orphan_nodes]
+        elif len(orphan_nodes) == 1 and len(sg.nodes) == 1:
+            # 单节点多行内容：拆分成小方块
+            single_node = orphan_nodes[0]
+            # 检查title或desc是否有多行
+            all_content = (single_node.title + '\n' + (single_node.desc or '')).strip()
+            lines = [l.strip() for l in all_content.split('\n') if l.strip()]
+            if len(lines) >= 3:
+                is_terminal_style = True
+                # 每项根据标题关键词自动匹配emoji
+                terminal_items = []
+                for line in lines:
+                    matched_icon = auto_match_emoji(line)
+                    terminal_items.append((line, '', matched_icon))
+        
+        # 检测是否有分叉结构
+        has_fork = len(fork_nodes) > 0
+        
+        nodes_html = ''
+        
+        if is_terminal_style:
+            # 终端应用布局：所有项用小方块并排
+            # 检查是否需要渲染描述（如果有desc非空）
+            has_desc = any(desc for _, desc, _ in terminal_items)
             
-            # 第一行：父节点横向排列
-            nodes_html += '<div class="flex gap-4 justify-center">'
-            for col_idx, column in enumerate(columns):
-                parent = column[0]  # 第一个节点是父节点
-                node_class = node_colors[col_idx % len(node_colors)]
-                title_br = parent.title.replace('\n', '<br>')
-                desc_br = parent.desc.replace('\n', '<br>') if parent.desc else ''
-                desc_html = f'<div class="node-desc">{desc_br}</div>' if desc_br else ''
-                icon_html = icon_to_html(parent.icon) if parent.icon else ''
-                icon_div = f'<div class="node-icon text-xl mb-1">{icon_html}</div>' if icon_html else ''
-                
+            nodes_html = '<div class="flex gap-3 justify-center flex-wrap">'
+            for n_idx, (title, desc, icon) in enumerate(terminal_items):
+                node_class = node_colors[n_idx % len(node_colors)]
+                title_br = title.replace('\n', '<br>')
+                desc_br = desc.replace('\n', '<br>') if desc else ''
+                desc_html = f'<div class="node-desc text-sm">{desc_br}</div>' if desc_br else ''
+                icon_html = icon_to_html(icon) if icon else ''
+                icon_div = f'<div class="node-icon text-lg mb-1">{icon_html}</div>' if icon_html else ''
+                # 有描述时增加内边距
+                padding = 'p-4' if has_desc else 'p-3'
                 nodes_html += f'''
-                <div class="node-card {node_class} p-4 text-center flex-1">
-                  {icon_div}<div class="node-title">{title_br}</div>
+                <div class="node-card {node_class} {padding} text-center" style="min-width: 140px;">
+                  {icon_div}<div class="node-title text-base">{title_br}</div>
                   {desc_html}
                 </div>'''
             nodes_html += '</div>'
+        
+        elif has_fork:
+            # 分叉结构布局：父节点大块 + 箭头 + 子节点并排小方块
+            nodes_html = '<div class="space-y-4">'
             
-            # 向下箭头行
-            nodes_html += '<div class="flex gap-4 justify-center">'
-            for col_idx, column in enumerate(columns):
-                nodes_html += '<div class="flex-1 text-center"><span class="text-gray-400 text-xl">↓</span></div>'
-            nodes_html += '</div>'
+            rendered_nodes = set()
             
-            # 第二行：每个父节点的子节点横向并列（在各自的分组内）
-            nodes_html += '<div class="flex gap-4">'
-            for col_idx, column in enumerate(columns):
-                children = column[1:]  # 后面的节点是子节点
-                nodes_html += '<div class="flex-1 flex gap-2 justify-center">'
-                for child_idx, child in enumerate(children):
-                    node_class = node_colors[(col_idx + child_idx) % len(node_colors)]
-                    title_br = child.title.replace('\n', '<br>')
-                    desc_br = child.desc.replace('\n', '<br>') if child.desc else ''
-                    desc_html = f'<div class="node-desc">{desc_br}</div>' if desc_br else ''
-                    icon_html = icon_to_html(child.icon) if child.icon else ''
-                    icon_div = f'<div class="node-icon text-xl mb-1">{icon_html}</div>' if icon_html else ''
+            # 找出完全孤立的节点（没有任何连接，应该和父节点并列）
+            fully_orphan_nodes = [n for n in orphan_nodes 
+                                  if n.id not in parent_to_children and n.id not in child_to_parent]
+            
+            for fork_idx, fork in enumerate(fork_nodes):
+                if fork.id in rendered_nodes:
+                    continue
+                
+                # 第一行：父节点 + 孤立节点并列显示
+                if fork_idx == 0 and fully_orphan_nodes:
+                    # 父节点和孤立节点并列
+                    nodes_html += '<div class="flex gap-3 justify-center flex-wrap">'
                     
+                    # 渲染父节点
+                    node_class = node_colors[0]
+                    title_br = fork.title.replace('\n', '<br>')
+                    desc_br = fork.desc.replace('\n', '<br>') if fork.desc else ''
+                    desc_html = f'<div class="node-desc text-sm">{desc_br}</div>' if desc_br else ''
+                    icon_html = icon_to_html(fork.icon) if fork.icon else ''
+                    icon_div = f'<div class="node-icon text-lg mb-1">{icon_html}</div>' if icon_html else ''
                     nodes_html += f'''
-                    <div class="node-card {node_class} p-3 text-center">
+                    <div class="node-card {node_class} p-4 text-center" style="min-width: 160px;">
                       {icon_div}<div class="node-title text-base">{title_br}</div>
                       {desc_html}
                     </div>'''
-                nodes_html += '</div>'
-            nodes_html += '</div>'
-            
-            nodes_html += '</div>'
-        
-        elif len(chains) == 1 and len(chains[0]) <= 3:
-            # 单链路、短：横向布局（无箭头）
-            chain = chains[0]
-            nodes_html = '<div class="flex items-center justify-between gap-4">'
-            for n_idx, node in enumerate(chain):
-                node_class = node_colors[n_idx % len(node_colors)]
-                title_br = node.title.replace('\n', '<br>')
-                desc_br = node.desc.replace('\n', '<br>') if node.desc else ''
-                desc_html = f'<div class="node-desc">{desc_br}</div>' if desc_br else ''
-                # icon 渲染
-                icon_html = icon_to_html(node.icon) if node.icon else ''
-                icon_div = f'<div class="node-icon text-xl mb-1">{icon_html}</div>' if icon_html else ''
-                nodes_html += f'''
-                <div class="node-card {node_class} p-5 flex-1 text-center">
-                  {icon_div}<div class="node-title">{title_br}</div>
-                  {desc_html}
-                </div>'''
-            nodes_html += '</div>'
-        
-        else:
-            # 多链路或长链路：横向并排，每条链路上下递进
-            nodes_html = '<div class="flex gap-6 items-start">'
-            for chain_idx, chain in enumerate(chains):
-                # 每条链路是一个列
-                nodes_html += '<div class="flex-1 space-y-3">'
-                for node_idx, node in enumerate(chain):
-                    node_class = node_colors[(chain_idx + node_idx) % len(node_colors)]
-                    title_br = node.title.replace('\n', '<br>')
-                    desc_br = node.desc.replace('\n', '<br>') if node.desc else ''
+                    rendered_nodes.add(fork.id)
+                    
+                    # 渲染孤立节点（并列）
+                    for o_idx, orphan in enumerate(fully_orphan_nodes):
+                        node_class = node_colors[(o_idx + 1) % len(node_colors)]
+                        title_br = orphan.title.replace('\n', '<br>')
+                        desc_br = orphan.desc.replace('\n', '<br>') if orphan.desc else ''
+                        desc_html = f'<div class="node-desc text-sm">{desc_br}</div>' if desc_br else ''
+                        icon_html = icon_to_html(orphan.icon) if orphan.icon else ''
+                        icon_div = f'<div class="node-icon text-lg mb-1">{icon_html}</div>' if icon_html else ''
+                        nodes_html += f'''
+                        <div class="node-card {node_class} p-4 text-center" style="min-width: 160px;">
+                          {icon_div}<div class="node-title text-base">{title_br}</div>
+                          {desc_html}
+                        </div>'''
+                        rendered_nodes.add(orphan.id)
+                    
+                    nodes_html += '</div>'
+                else:
+                    # 非第一行或无孤立节点：父节点单独居中
+                    node_class = node_colors[0]
+                    title_br = fork.title.replace('\n', '<br>')
+                    desc_br = fork.desc.replace('\n', '<br>') if fork.desc else ''
                     desc_html = f'<div class="node-desc">{desc_br}</div>' if desc_br else ''
-                    # icon 渲染
-                    icon_html = icon_to_html(node.icon) if node.icon else ''
+                    icon_html = icon_to_html(fork.icon) if fork.icon else ''
                     icon_div = f'<div class="node-icon text-xl mb-1">{icon_html}</div>' if icon_html else ''
                     
-                    # 节点卡片
                     nodes_html += f'''
-                    <div class="node-card {node_class} p-4 text-center">
+                    <div class="node-card {node_class} p-5 text-center mx-auto" style="max-width: 300px;">
                       {icon_div}<div class="node-title">{title_br}</div>
                       {desc_html}
                     </div>'''
+                    rendered_nodes.add(fork.id)
+                
+                # 向下箭头
+                nodes_html += '<div class="text-center text-gray-400 text-xl">↓</div>'
+                
+                # 子节点并排小方块
+                children_ids = parent_to_children.get(fork.id, [])
+                children_nodes = [node_map.get(c_id) for c_id in children_ids if node_map.get(c_id)]
+                
+                nodes_html += '<div class="flex gap-3 justify-center flex-wrap">'
+                for c_idx, child in enumerate(children_nodes):
+                    node_class = node_colors[(c_idx + 1) % len(node_colors)]
+                    title_br = child.title.replace('\n', '<br>')
+                    desc_br = child.desc.replace('\n', '<br>') if child.desc else ''
+                    desc_html = f'<div class="node-desc text-sm">{desc_br}</div>' if desc_br else ''
+                    icon_html = icon_to_html(child.icon) if child.icon else ''
+                    icon_div = f'<div class="node-icon text-lg mb-1">{icon_html}</div>' if icon_html else ''
                     
-                    # 如果不是链路最后一个节点，添加向下箭头
-                    if node_idx < len(chain) - 1:
-                        nodes_html += '<div class="text-center text-gray-400 text-xl">↓</div>'
+                    nodes_html += f'''
+                    <div class="node-card {node_class} p-3 text-center" style="min-width: 120px;">
+                      {icon_div}<div class="node-title text-base">{title_br}</div>
+                      {desc_html}
+                    </div>'''
+                    rendered_nodes.add(child.id)
+                    
+                    # 递归处理子节点的子节点（如果有）
+                    sub_children_ids = parent_to_children.get(child.id, [])
+                    if sub_children_ids:
+                        sub_children = [node_map.get(s_id) for s_id in sub_children_ids if node_map.get(s_id)]
+                        # 关闭当前flex容器，添加箭头和新的子节点行
+                        nodes_html += '</div>'
+                        nodes_html += '<div class="text-center text-gray-400 text-lg mt-2">↓</div>'
+                        nodes_html += '<div class="flex gap-3 justify-center flex-wrap mt-2">'
+                        for sc_idx, sub_child in enumerate(sub_children):
+                            if sub_child.id not in rendered_nodes:
+                                node_class = node_colors[(c_idx + sc_idx + 2) % len(node_colors)]
+                                title_br = sub_child.title.replace('\n', '<br>')
+                                desc_br = sub_child.desc.replace('\n', '<br>') if sub_child.desc else ''
+                                desc_html = f'<div class="node-desc text-sm">{desc_br}</div>' if desc_br else ''
+                                icon_html = icon_to_html(sub_child.icon) if sub_child.icon else ''
+                                icon_div = f'<div class="node-icon text-lg mb-1">{icon_html}</div>' if icon_html else ''
+                                nodes_html += f'''
+                                <div class="node-card {node_class} p-3 text-center" style="min-width: 120px;">
+                                  {icon_div}<div class="node-title text-base">{title_br}</div>
+                                  {desc_html}
+                                </div>'''
+                                rendered_nodes.add(sub_child.id)
                 
                 nodes_html += '</div>'
+            
+            # 处理未渲染的节点（孤立节点或非分叉链路）
+            unrendered = [n for n in sg.nodes if n.id not in rendered_nodes]
+            if unrendered:
+                # 检查是否形成链路
+                chains = analyze_hierarchical_structure(unrendered, flowchart.all_connections)
+                
+                for chain in chains:
+                    nodes_html += '<div class="flex gap-4 justify-center mt-3">'
+                    for n_idx, node in enumerate(chain):
+                        node_class = node_colors[n_idx % len(node_colors)]
+                        title_br = node.title.replace('\n', '<br>')
+                        desc_br = node.desc.replace('\n', '<br>') if node.desc else ''
+                        desc_html = f'<div class="node-desc">{desc_br}</div>' if desc_br else ''
+                        icon_html = icon_to_html(node.icon) if node.icon else ''
+                        icon_div = f'<div class="node-icon text-xl mb-1">{icon_html}</div>' if icon_html else ''
+                        nodes_html += f'''
+                        <div class="node-card {node_class} p-4 text-center">
+                          {icon_div}<div class="node-title">{title_br}</div>
+                          {desc_html}
+                        </div>'''
+                        if n_idx < len(chain) - 1:
+                            nodes_html += '<div class="text-gray-400 text-xl self-center">→</div>'
+                    nodes_html += '</div>'
+            
             nodes_html += '</div>'
+        
+        else:
+            # 无分叉：使用链路布局
+            chains = analyze_hierarchical_structure(sg.nodes, flowchart.all_connections)
+            
+            if len(chains) == 1 and len(chains[0]) <= 3:
+                # 单链路、短：横向布局（无箭头）
+                chain = chains[0]
+                nodes_html = '<div class="flex items-center justify-between gap-4">'
+                for n_idx, node in enumerate(chain):
+                    node_class = node_colors[n_idx % len(node_colors)]
+                    title_br = node.title.replace('\n', '<br>')
+                    desc_br = node.desc.replace('\n', '<br>') if node.desc else ''
+                    desc_html = f'<div class="node-desc">{desc_br}</div>' if desc_br else ''
+                    icon_html = icon_to_html(node.icon) if node.icon else ''
+                    icon_div = f'<div class="node-icon text-xl mb-1">{icon_html}</div>' if icon_html else ''
+                    nodes_html += f'''
+                    <div class="node-card {node_class} p-5 flex-1 text-center">
+                      {icon_div}<div class="node-title">{title_br}</div>
+                      {desc_html}
+                    </div>'''
+                nodes_html += '</div>'
+            
+            else:
+                # 多链路或长链路：横向并排，每条链路纵向递进
+                nodes_html = '<div class="flex gap-6 items-start">'
+                for chain_idx, chain in enumerate(chains):
+                    nodes_html += '<div class="flex-1 space-y-3">'
+                    for node_idx, node in enumerate(chain):
+                        node_class = node_colors[(chain_idx + node_idx) % len(node_colors)]
+                        title_br = node.title.replace('\n', '<br>')
+                        desc_br = node.desc.replace('\n', '<br>') if node.desc else ''
+                        desc_html = f'<div class="node-desc">{desc_br}</div>' if desc_br else ''
+                        icon_html = icon_to_html(node.icon) if node.icon else ''
+                        icon_div = f'<div class="node-icon text-xl mb-1">{icon_html}</div>' if icon_html else ''
+                        
+                        nodes_html += f'''
+                        <div class="node-card {node_class} p-4 text-center">
+                          {icon_div}<div class="node-title">{title_br}</div>
+                          {desc_html}
+                        </div>'''
+                        
+                        if node_idx < len(chain) - 1:
+                            nodes_html += '<div class="text-center text-gray-400 text-xl">↓</div>'
+                    
+                    nodes_html += '</div>'
+                nodes_html += '</div>'
         
         # 生成卡片
         # 渲染 subgraph icon（emoji 或 Font Awesome）
@@ -743,6 +885,22 @@ def generate_html(flowchart: Flowchart) -> str:
     
     # HTML 尾部
     html_parts.append('''
+    </div>
+    <script>
+      // 动态计算水印高度：根据内容区域高度
+      function updateWatermarkHeight() {
+        const content = document.getElementById('content');
+        const watermark = document.getElementById('watermark-bg');
+        if (content && watermark) {
+          const contentHeight = content.scrollHeight + 40;
+          watermark.style.height = contentHeight + 'px';
+        }
+      }
+      // 页面加载和字体加载后更新
+      updateWatermarkHeight();
+      document.fonts.ready.then(updateWatermarkHeight);
+      window.addEventListener('load', updateWatermarkHeight);
+    </script>
   </div>
 </body>
 </html>''')

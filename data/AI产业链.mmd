@@ -1,0 +1,82 @@
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#FFE5D9',
+    'primaryTextColor': '#5D4E37',
+    'primaryBorderColor': '#E8C4B8',
+    'lineColor': '#B8A99A',
+    'secondaryColor': '#D4E7D4',
+    'secondaryTextColor': '#4A6741',
+    'secondaryBorderColor': '#A8C8A8',
+    'tertiaryColor': '#E8DFF5',
+    'tertiaryTextColor': '#5D4E6D',
+    'tertiaryBorderColor': '#C8B8D8',
+    'background': '#FFFBF5',
+    'mainBkg': '#FFF5EE',
+    'nodeBorder': '#E8D5C4',
+    'clusterBkg': '#F5F0EB',
+    'clusterBorder': '#D4C4B8',
+    'titleColor': '#6B5B4F',
+    'edgeLabelBackground': '#FFF9F0',
+    'fontFamily': 'PingFang SC, Microsoft YaHei, sans-serif',
+    'fontSize': '15px'
+  },
+  'flowchart': {
+    'curve': 'basis',
+    'padding': 20,
+    'nodeSpacing': 50,
+    'rankSpacing': 80,
+    'diagramPadding': 30
+  }
+}}%%
+%% title: AI产业链图谱
+%% watermark: 题材调研员
+
+flowchart TD
+    subgraph 上游["🏭 上游：AI芯片与核心硬件"]
+        A1["英伟达\n全球GPU霸主"] 
+        A2["华为昇腾\n国产替代核心"]
+        A3["SK海力士/三星\nHBM存储"]
+        A4["中际旭创/新易盛\n高速光模块/CPO"]
+    end
+    
+    subgraph 中游["⚙️ 中游：AI服务器与供电散热"]
+        B1["浪潮/华勤\nAI服务器"] 
+        B2["英维克/高澜/申菱\n液冷散热"] 
+        B3["麦格米特/科华\n800V HVDC电源"]
+        B4["鹏鼎/生益\n高端PCB"]
+        B5["晶科/天合/双登\nAIDC储能系统"]
+    end
+    
+    subgraph 下游["🛒 下游：AIDC建设与算力服务"]
+        C1["秦淮/润泽/数据港\n智算中心运营"]
+        C2["光环新网/协创数据\n算力租赁服务"]
+        C3["阿里云/火山引擎\n云计算/大模型"]
+    end
+    
+    subgraph 应用["💡 终端应用"]
+        D["大模型训练\nAI Agent\n智能驾驶\n具身机器人\n科学研究"]
+    end
+    
+    A1 --> B1
+    A2 --> B1
+    A3 --> B1
+    A4 --> B1
+    B1 --> B2
+    B1 --> B3
+    B3 --> B5
+    B2 --> C1
+    B3 --> C1
+    B5 --> C1
+    C1 --> C2
+    C2 --> C3
+    C3 --> D
+    
+    style A1 fill:#E8DFF5,stroke:#C8B8D8,color:#5D4E6D
+    style A2 fill:#E8DFF5,stroke:#C8B8D8,color:#5D4E6D
+    style B2 fill:#FFE5D9,stroke:#E8C4B8,color:#5D4E37
+    style B3 fill:#FFE5D9,stroke:#E8C4B8,color:#5D4E37
+    style B5 fill:#D4E7D4,stroke:#A8C8A8,color:#4A6741
+    style C1 fill:#D6EAF8,stroke:#A8C8D8,color:#4A678D
+    style C2 fill:#D6EAF8,stroke:#A8C8D8,color:#4A678D
+    style D fill:#FFF3CD,stroke:#E8D8A8,color:#6B5B4F
