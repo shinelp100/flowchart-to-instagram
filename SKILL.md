@@ -1,145 +1,350 @@
----
-name: flowchart-to-instagram
-description: 将 Mermaid flowchart TD 或层级内容转换为 Instagram 风格信息图，适合微信公众号投放。解析结构而非简单渲染，设计层级递进的视觉卡片。
-tags: [flowchart, instagram, wechat, 公众号, 信息图, infographic, 题材调研员]
-global: true
----
-
-# flowchart-to-instagram
-
-将 Mermaid flowchart TD 或层级内容转换为 Instagram 风格信息图，适合微信公众号投放。
-
-## 核心功能
-
-- **解析而非渲染**：提取内容结构和层级关系
-- **Instagram 风格设计**：渐变背景、毛玻璃卡片、柔和配色
-- **层级递进布局**：根据分组智能排版
-- **品牌水印**：2×2 网格，透明度 6%，旋转 -20°
-
-## 设计规范（v1.0 最终版）
-
-### 背景渐变
-```css
-background: linear-gradient(135deg, 
-  #833ab4 0%, 
-  #fd1d1d 50%, 
-  #fcb045 100%
-);
-```
-紫 → 红 → 橧，Instagram 经典配色。
-
-### 水印样式
-- 2×2 网格布局（4个水印）
-- 字体大小：180px
-- 透明度：6%
-- 旋转：-20°
-- 颜色：rgba(255, 255, 255, 0.06)
-
-### 卡片样式
-- 半透明毛玻璃效果
-- 渐变方向与背景一致（135deg）
-- 不同区块有微色调呼应背景：
-  - 上游：粉紫色调
-  - 中游：红粉色调
-  - 下游：橙红色调
-  - 出海/政策：橙黄色调
-
-### 字体规范
-- **大标题**：20px，font-weight: 700，#1a1a1a
-- **节点标题**：19px，font-weight: 600，#1a1a1a
-- **描述文字**：15px，font-weight: 400，#3a3a3a
-
-### 布局规范
-- 最大宽度：800px
-- 卡片内边距：p-6（24px）
-- 节点内边距：p-5（20px）或 p-4（16px）
-- 卡片间距：gap-5（20px）
-
-### 节点配色（柔和渐变）
-```
-node-1: #fef7f7 → #fce8e8（粉红）
-node-2: #fef9f3 → #fde9d9（橙粉）
-node-3: #fef8f0 → #fde5cc（橙黄）
-node-4: #f4fef7 → #dcf8e3（绿）
-node-5: #f3f7fe → #dce5f8（蓝）
-node-6: #f8f5fe → #e8dcf8（紫）
-```
-
-### 卡片底色（与背景呼应）
-```css
-/* 上游 - 粉紫色调 */
-.card-1: rgba(255,240,250,0.9) → rgba(255,245,255,0.92) → rgba(255,250,245,0.9)
-
-/* 中游 - 红粉色调 */
-.card-2: rgba(255,235,245,0.9) → rgba(255,240,250,0.92) → rgba(255,245,240,0.9)
-
-/* 下游 - 橙红色调 */
-.card-3: rgba(255,230,240,0.9) → rgba(255,235,245,0.92) → rgba(255,240,235,0.9)
-
-/* 出海/政策 - 橙黄色调 */
-.card-4: rgba(255,235,235,0.9) → rgba(255,230,240,0.92) → rgba(255,240,230,0.9)
-```
-
-## 使用方法
-
-### 方法一：修改模板文件
-
-1. 编辑 `templates/instagram-card.html`
-2. 修改内容区块（标题、节点）
-3. 用浏览器打开，截图导出
-
-### 方法二：自动化脚本（待开发）
-
-```bash
-python scripts/generate.py --input data/flowchart.json --output output/card.png
-```
-
-## 文件结构
-
-```
-~/.hermes/skills/flowchart-to-instagram/
-├── SKILL.md                    # 本文档
-├── templates/
-│   └── instagram-card.html     # HTML 模板（v1.0 最终版）
-└── scripts/
-    └── generate.py             # 自动化脚本（待开发）
-```
-
-## 迭代记录
-
-### v1.0 (2026-04-11)
-- Instagram 风格渐变背景（紫→红→橙）
-- 2×2 水印布局，180px 字体
-- 半透明毛玻璃卡片，底色与背景呼应
-- 柔和节点渐变色（6种配色方案）
-- 字体规范确立（标题20px、节点19px、描述15px）
-- 移除所有 icon，纯文字设计
-
-## GitHub 管理
-
-建议将此 skill 复制到独立 Git 仓库迭代：
-
-```bash
-# 创建仓库
-mkdir flowchart-to-instagram && cd flowchart-to-instagram
-git init
-
-# 复制 skill 文件
-cp -r ~/.hermes/skills/flowchart-to-instagram/* .
-
-# 推送到 GitHub
-git add .
-git commit -m "v1.0: Instagram-style flowchart card generator"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/flowchart-to-instagram.git
-git push -u origin main
-```
-
-## 待开发功能
-
-- [ ] 自动解析 Mermaid flowchart TD 语法
-- [ ] 自动解析 Markdown 层级结构
-- [ ] 一键生成 PNG（Puppeteer/Playwright）
-- [ ] 支持自定义品牌水印文字
-- [ ] 支持多主题切换（小红书、商务简报等）
-- [ ] CLI 命令行工具
+     1|---
+     2|name: flowchart-to-instagram
+     3|description: 将 Mermaid flowchart TD 或层级内容转换为 Instagram 风格信息图，适合微信公众号投放。解析结构而非简单渲染，设计层级递进的视觉卡片。
+     4|tags: [flowchart, instagram, wechat, 公众号, 信息图, infographic, 题材调研员]
+     5|global: true
+     6|---
+     7|
+     8|# flowchart-to-instagram
+     9|
+    10|将 Mermaid flowchart TD 或层级内容转换为 Instagram 风格信息图，适合微信公众号投放。
+    11|
+    12|## 核心功能
+    13|
+    14|- **解析而非渲染**：提取内容结构和层级关系
+    15|- **Instagram 风格设计**：渐变背景、毛玻璃卡片、柔和配色
+    16|- **层级递进布局**：根据分组智能排版
+    17|- **品牌水印**：2×2 网格，透明度 6%，旋转 -20°
+    18|
+    19|## 设计规范（v1.0 最终版）
+    20|
+    21|### 背景渐变
+    22|```css
+    23|background: linear-gradient(135deg, 
+    24|  #833ab4 0%, 
+    25|  #fd1d1d 50%, 
+    26|  #fcb045 100%
+    27|);
+    28|```
+    29|紫 → 红 → 橧，Instagram 经典配色。
+    30|
+    31|### 水印样式
+    32|- 2×2 网格布局（4个水印）
+    33|- 字体大小：180px
+    34|- 透明度：6%
+    35|- 旋转：-20°
+    36|- 颜色：rgba(255, 255, 255, 0.06)
+    37|
+    38|### 卡片样式
+    39|- 半透明毛玻璃效果
+    40|- 渐变方向与背景一致（135deg）
+    41|- 不同区块有微色调呼应背景：
+    42|  - 上游：粉紫色调
+    43|  - 中游：红粉色调
+    44|  - 下游：橙红色调
+    45|  - 出海/政策：橙黄色调
+    46|
+    47|### 字体规范
+    48|- **大标题（section-title）**：24px，font-weight: 700，#1a1a1a，居中显示
+    49|- **节点标题**：19px，font-weight: 600，#1a1a1a
+    50|- **描述文字**：15px，font-weight: 400，#3a3a3a
+    51|
+    52|### 布局规范
+    53|- 最大宽度：800px
+    54|- 卡片内边距：p-6（24px）
+    55|- 节点内边距：p-5（20px）或 p-4（16px）
+    56|- 卡片间距：gap-5（20px）
+    57|
+    58|### 节点配色（柔和渐变）
+    59|```
+    60|node-1: #fef7f7 → #fce8e8（粉红）
+    61|node-2: #fef9f3 → #fde9d9（橙粉）
+    62|node-3: #fef8f0 → #fde5cc（橙黄）
+    63|node-4: #f4fef7 → #dcf8e3（绿）
+    64|node-5: #f3f7fe → #dce5f8（蓝）
+    65|node-6: #f8f5fe → #e8dcf8（紫）
+    66|```
+    67|
+    68|### 卡片底色（与背景呼应）
+    69|```css
+    70|/* 上游 - 粉紫色调 */
+    71|.card-1: rgba(255,240,250,0.9) → rgba(255,245,255,0.92) → rgba(255,250,245,0.9)
+    72|
+    73|/* 中游 - 红粉色调 */
+    74|.card-2: rgba(255,235,245,0.9) → rgba(255,240,250,0.92) → rgba(255,245,240,0.9)
+    75|
+    76|/* 下游 - 橙红色调 */
+    77|.card-3: rgba(255,230,240,0.9) → rgba(255,235,245,0.92) → rgba(255,240,235,0.9)
+    78|
+    79|/* 出海/政策 - 橙黄色调 */
+    80|.card-4: rgba(255,235,235,0.9) → rgba(255,230,240,0.92) → rgba(255,240,230,0.9)
+    81|```
+    82|
+    83|## 使用方法
+    84|
+    85|### 方法一：Mermaid 解析器（推荐，v1.1 新增）
+    86|
+    87|自动解析 Mermaid flowchart TD 语法，生成 Instagram 风格信息图：
+    88|
+    89|```bash
+    90|cd ~/projects/flowchart-to-instagram
+    91|
+    92|# 步骤1：解析 Mermaid 文件生成 HTML
+    93|python scripts/parse_mermaid.py input.mmd output.html
+    94|
+    95|# 步骤2：HTML 转 PNG 截图
+    96|node scripts/screenshot.mjs output.html output.png
+    97|
+    98|# 或使用 --demo 测试
+    99|python scripts/parse_mermaid.py --demo
+   100|```
+   101|
+   102|**支持的 Mermaid 格式**：
+   103|```mermaid
+   104|%% title: 产业链图谱标题
+   105|%% watermark: 题材调研员
+   106|
+   107|flowchart TD
+   108|subgraph SG1["上游：材料与电芯"]
+   109|    A1["碳酸锂\n锂精矿"]
+   110|    A2["正极材料\n负极材料\n隔膜电解液"]
+   111|    A3["电芯制造\n宁德时代\n比亚迪·亿纬"]
+   112|    A1 --> A2
+   113|    A2 --> A3
+   114|end
+   115|
+   116|subgraph SG2["中游：系统集成"]
+   117|    B1["储能电池系统\nPACK + BMS"]
+   118|    B2["储能变流器\nPCS"]
+   119|    A3 --> B1
+   120|    B1 --> B2
+   121|end
+   122|
+   123|subgraph SG3["下游：应用场景"]
+   124|    C1["电源侧\n新能源配储"]
+   125|    C2["电网侧\n独立储能"]
+   126|    B2 --> C1
+   127|    B2 --> C2
+   128|end
+   129|```
+   130|
+   131|**解析器特性**：
+   132|- 自动提取 subgraph 作为层级卡片
+   133|- 节点格式：`A["标题\n描述"]`（换行符 `\n` 分隔标题和描述）
+   134|- 支持注释配置：`%% title:` 和 `%% watermark:`
+   135|- 节点按 subgraph 定义位置自动分组
+   136|- **Icon 支持**：节点开头可添加图标
+   137|  - Emoji：`A["🧪 氟化液"]` → 图标渲染在标题上方
+   138|  - Font Awesome：`A["fa:flask 氟化液"]` → 使用FA图标库
+   139|
+   140|### 方法二：修改模板文件
+   141|
+   142|1. 编辑 `templates/instagram-card.html`
+   143|2. 修改内容区块（标题、节点）
+   144|3. 用浏览器打开，截图导出
+   145|
+   146|## 文件结构
+   147|
+   148|```
+   149|~/projects/flowchart-to-instagram/
+   150|├── README.md                   # 项目文档
+   151|├── scripts/
+   152|│   ├── parse_mermaid.py        # Mermaid 解析脚本（v1.2）
+   153|│   └── screenshot.mjs          # HTML → PNG 截图脚本（Playwright）
+   154|├── templates/
+   155|│   └── instagram-card.html     # HTML 模板（v1.0 最终版）
+   156|├── data/
+   157|│   └── 储能产业链.mmd           # 示例 Mermaid 文件
+   158|└── output/                     # 输出目录
+   159|```
+   160|
+   161|## 迭代记录
+   162|
+   163|### v1.9 (2026-04-12)
+   164|- **截图尺寸修复**：Playwright在高DPI显示器上生成1839px宽度问题
+   165|  - 使用 `clip` 强制裁剪到820px宽度
+   166|  - viewport高度从600增至2000，让内容自然展开
+   167|  - 添加 `--force-device-scale-factor=1` 启动参数
+   168|  - 使用 `document.body.scrollHeight` 获取真实内容高度
+   169|- **Emoji自动匹配扩展**：新增50+关键词映射
+   170|  - 终端应用：大模型训练(🧠)、智能驾驶(🚗)、具身机器人(🤖)、科学研究(🔬)、终端(💡)
+   171|  - 算力：算力(💻)、智算(🖥️)、超算(⚡)、数据中心(🏢)
+   172|  - 基础设施：电力(⚡)、能源(🔋)、基建(🏗️)、运维(🔧)
+   173|  - 协议与技术：协议(📜)、标准(📋)、接口(🔌)、架构(🏛️)
+   174|  - 材料与制造：材料(🧪)、制造(🏭)、工艺(⚙️)、设备(🔧)
+   175|  - 出海与应用：出海(🚢)、应用(🎯)、方案(📋)、场景(🎬)
+   176|- **链路追踪算法重构**：修复节点丢失和错误箭头问题
+   177|  - 新算法：`analyze_hierarchical_structure` 改用BFS链路追踪
+   178|  - 从根节点开始，逐层追踪完整链路（支持A→B→C→D多层级）
+   179|  - 支持分叉（A→B, A→C 形成两条链路）
+   180|  - 孤立节点单独成链，无箭头
+   181|- **Bug修复：终端应用布局遗漏描述文字**：
+   182|  - 原实现：`is_terminal_style`布局只渲染title，忽略desc
+   183|  - 新实现：检查是否有desc，渲染描述文字并增加内边距
+   184|  - 影响：上游节点（如"英伟达"+"全球GPU霸主"）正确显示描述
+   185|- **Bug修复：孤立节点位置错误**：
+   186|  - 原实现：孤立节点（无连接）被单独放最后
+   187|  - 新实现：孤立节点与第一个父节点并列显示（同一行）
+   188|  - 影响：B4节点（鹏鼎/生益）与B1节点（浪潮/华勤）并列
+   189|
+   190|### v1.8 (2026-04-12)
+   191|- **自动匹配 Emoji 功能文档化**：
+   192|  - `EMOJI_KEYWORDS` 字典：100+产业链关键词映射
+   193|  - `auto_match_emoji(title)` 函数：无显式icon时自动添加
+   194|  - 调用位置：`parse_node_content()` 返回前
+   195|- **输出路径说明**：明确CLI用法，HTML/PNG输出到 `output/` 目录
+   196|
+   197|### v1.7 (2026-04-12)
+   198|- **层级布局渲染修复**：修复父子节点排列方式
+   199|  - 原实现：每列纵向排列（父→子垂直）
+   200|  - 新实现：第一行父节点横向并列，第二行子节点横向并列（各自分组内）
+   201|  - 中间添加向下箭头行，视觉递进更清晰
+   202|
+   203|### v1.6 (2026-04-12)
+   204|- **层级布局**：新增树形结构布局（父节点→多个子节点）
+   205|  - 自动识别父子关系（通过连接关系）
+   206|  - 与线性链路布局智能切换
+   207|
+   208|### v1.5 (2026-04-12)
+   209|- **Icon 支持（Font Awesome + Emoji + 自动匹配）**：节点内容可包含图标，渲染在标题上方
+   210|  - Font Awesome 格式：`A["fas:mobile-alt 消费电子驱动\n手机+PC为主"]`
+   211|    - 支持前缀：`fa`、`fas`（solid）、`fab`（brands）、`far`（regular）
+   212|    - 使用 Font Awesome 6.5.1 CDN
+   213|  - Emoji 格式：`A["🧪 氟化液/硅基液"]`
+   214|    - 自动识别开头emoji作为icon保留
+   215|  - **自动匹配 Emoji**：如果节点没有显式icon，根据标题关键词自动添加
+   216|    - `EMOJI_KEYWORDS` 字典：100+关键词映射（产业链专用）
+   217|    - 示例：`冷却液` → 🧪，`AI` → 🤖，`服务器` → ️️，`温控` → 🌡️
+   218|    - 调用 `auto_match_emoji(title)` 在 `parse_node_content()` 中自动添加
+   219|  - `icon_to_html()` 函数：检测 `:` 决定是FA图标还是emoji
+   220|- **Emoji unicode范围修复**：部分emoji无法识别（如 ⚙️、⭐）
+   221|  - 原正则 `\U00002702-\U000027B0` 无法匹配 ⚙️（U+2699=9881 < U+2702=9986）
+   222|  - 新范围 `\U00002600-\U000027BF` 包含完整 Misc Symbols + Dingbats
+   223|  - 新范围 `\U00002B50-\U00002B55` 包含星星符号 ⭐
+   224|  - 新范围 `\U0000FE00-\U0000FE0F` 包含 Variation Selectors（文本符号变emoji的组合字符）
+   225|  - 新范围 `\U0001F1E0-\U0001F1FF` 包含 Flags（国旗等区域性符号）
+   226|- **Bug修复**：`remove_emoji()` 函数 unicode 范围 `\U000024C2-\U0001F251` 包含中文 CJK 字符区域
+   227|  - 导致中文字符被错误删除（如 `消费电子驱动` → `+PC`）
+   228|  - 解决：移除该 unicode 范围，只保留精确的 emoji 区域
+   229|
+   230|### v1.4 (2026-04-11)
+   231|- **保留 emoji 图标**：subgraph 标题中的 emoji 现在正确显示（如 🏭 上游材料层）
+   232|- 移除 remove_emoji() 调用，让 emoji 自然渲染
+   233|- 添加 .gitignore 排除 node_modules、output、__pycache__
+   234|- 添加示例数据文件（内存涨价链、内存范式演变、液冷产业链）
+   235|
+   236|### v1.3 (2026-04-11)
+   237|- 过滤 %%{init}%% 配置块和 style 定义行
+   238|- 支持节点内容换行（\n 转换为 <br> 标签）
+   239|- 修复连接正则表达式，避免匹配数字中的 `-`（如 `90-95%`）
+   240|
+   241|### v1.2 (2026-04-11)
+   242|- **Bug修复**：支持中文 subgraph ID（如 `subgraph 上游["标题"]`）
+   243|  - 原正则 `[A-Za-z0-9_]+` 只支持英文ID，改为 `\S+` 支持任意非空白字符
+   244|- **Bug修复**：过滤 `%%{init}%%` 配置块，防止误解析字体设置（如 `sans-serif`）为节点
+   245|  - 添加 `in_init_block` 状态跟踪，跳过整个 init 配置块
+   246|- **Bug修复**：过滤 `style` 定义行，防止误解析样式配置
+   247|- **改进**：使用 `findall` 替代 `search`，正确解析连接行中的节点定义（如 `C1 --> C4["标题"]`）
+   248|
+   249|### v1.3 (2026-04-11)
+   250|- **Bug修复**：连接正则避免匹配数字中的 `-`
+   251|  - 原正则 `[-<>]+` 会误匹配 `90-95%`、`500-1500元` 中的 `-`
+   252|  - 改为先去除节点内容 `[...]`，再匹配明确连接符号 `-{2,}>?`、`->`、`--`
+   253|- **样式改进**：section-title 居中显示（text-align: center）
+   254|- **样式改进**：section-title 字体增大至 24px
+   255|- **布局改进**：高度自适应内容
+   256|  - 移除 `min-height: 100vh`，改用 `padding-bottom: 20px`
+   257|  - 水印改为 `position: absolute`（非 `fixed`）覆盖内容区域
+   258|  - 截图高度根据实际内容自动调整
+   259|
+   260|### v1.0 (2026-04-11)
+   261|- Instagram 风格渐变背景（紫→红→橙）
+   262|- 2×2 水印布局，180px 字体
+   263|- 半透明毛玻璃卡片，底色与背景呼应
+   264|- 柔和节点渐变色（6种配色方案）
+   265|- 字体规范确立（标题20px、节点19px、描述15px）
+   266|- 移除所有 icon，纯文字设计
+   267|
+   268|## GitHub 管理
+   269|
+   270|已发布 GitHub: https://github.com/shinelp100/flowchart-to-instagram
+   271|
+   272|版本迭代：
+   273|- v1.0: 基础模板，Instagram 风格设计规范
+   274|- v1.1: Mermaid 解析器，自动化生成流程
+   275|
+   276|## 解析器常见问题（v1.2 修复）
+   277|
+   278|### 1. 中文 subgraph ID 不识别
+   279|**症状**：Subgraph 数量为 0 或少于预期  
+   280|**原因**：原正则 `[A-Za-z0-9_]+` 只支持英文ID  
+   281|**解决**：改为 `\S+` 支持中文ID（如 `上游`、`中游`）
+   282|
+   283|### 2. 节点数量异常多（如出现 "sans"、"serif"）
+   284|**症状**：节点数比预期多，出现奇怪节点名  
+   285|**原因**：`%%{init}%%` 配置块中的字体设置被误解析  
+   286|**解决**：添加 `in_init_block` 状态跟踪，跳过整个 init 配置块
+   287|
+   288|### 3. 节点丢失（连接行中定义的节点）
+   289|**症状**：节点数少于预期，`C1 --> C4["标题"]` 中 C4 未识别  
+   290|**原因**：原逻辑用 `search` 只匹配第一个节点定义  
+   291|**解决**：改用 `findall` 匹配所有节点定义
+   292|
+   293|### 4. style 行被误解析
+   294|**症状**：出现无关节点  
+   295|**原因**：`style A1 fill:#xxx` 行被正则匹配  
+   296|**解决**：添加 `style` 行过滤
+   297|
+   298|### 5. 连接正则误匹配数字中的 `-`
+   299|**症状**：节点数异常，如 `90`、`95` 被识别为连接节点  
+   300|**原因**：原正则 `[-<>]+` 匹配了 `90-95%`、`500-1500元` 中的 `-`  
+   301|**解决**：预处理去除 `[...]` 内容，再匹配明确连接符号 `-->`、`->`、`--`
+   302|
+   303|### 6. 中文字符被删除（remove_emoji unicode 范围过宽）
+   304|**症状**：节点内容中文消失，如 `消费电子驱动\n手机+PC为主` → `+PC`  
+   305|**原因**：`remove_emoji()` 正则 `\U000024C2-\U0001F251` 范围包含 CJK 字符区域  
+   306|**解决**：移除该 unicode 范围，只保留精确的 emoji 区域
+   307|
+   308|### 7. 输出路径问题
+   309|**症状**：生成PNG后找不到文件，或HTML写入错误目录  \
+   310|**原因**：脚本默认将HTML输出到输入文件同目录  \
+   311|**解决**：明确指定输出路径：
+   312|```bash
+   313|# 正确用法：第二个参数指定输出HTML路径
+   314|python scripts/parse_mermaid.py data/input.mmd output/input.html
+   315|node scripts/screenshot.mjs output/input.html output/input.png
+   316|```
+   317|
+   318|### 8. 截图尺寸异常（宽度1839px而非820px）
+   319|**症状**：PNG宽度为1839px，内容变成宫格布局，仅在左上角显示  \
+   320|**原因**：Playwright在高DPI显示器上忽略deviceScaleFactor设置，fullPage模式放大截图  \
+   321|**解决**：修改 `scripts/screenshot.mjs`：
+   322|```javascript
+   323|// 关键修复：使用clip强制裁剪 + 增大viewport高度
+   324|const context = await browser.newContext({
+   325|  viewport: { width: 820, height: 2000 },  // 高度设大让内容自然展开
+   326|  deviceScaleFactor: 1,
+   327|  isMobile: false,
+   328|  hasTouch: false
+   329|});
+   330|
+   331|const height = await page.evaluate(() => document.body.scrollHeight);
+   332|await page.screenshot({
+   333|  clip: { x: 0, y: 0, width: 820, height: height }  // 强制820px宽度
+   334|});
+   335|```
+   336|**v1.9更新**：screenshot.mjs 已修复此问题，现默认输出正确820px宽度
+   337|
+   338|### 8. Font Awesome Icon 使用
+   339|**格式**：节点内容开头添加 `fa:icon-name` 或 `fas:icon-name`  
+   340|**示例**：`A["fas:server 液冷服务器\n整机柜方案"]`  
+   341|**渲染**：图标在标题上方，使用 Font Awesome 6.5.1 CDN
+   342|
+   343|## 待开发功能
+   344|
+   345|- [x] 自动解析 Mermaid flowchart TD 语法（v1.1 已完成）
+   346|- [x] 一键生成 PNG（v1.3 Playwright 截图脚本）
+   347|- [ ] 自动解析 Markdown 层级结构
+   348|- [ ] 支持自定义品牌水印文字（已通过注释支持）
+   349|- [ ] 支持多主题切换（小红书、商务简报等）
+   350|- [ ] CLI 命令行工具（npm/cli 发布）
