@@ -544,24 +544,14 @@ def generate_html(flowchart: Flowchart) -> str:
       background: linear-gradient(135deg, #833ab4 0%, #fd1d1d 50%, #fcb045 100%);
       padding-bottom: 20px;
     }
-    .watermark-bg {
+    /* SVG水印层 - 自动重复铺满 */
+    .watermark-svg {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-      pointer-events: none; z-index: 0;
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      grid-template-rows: repeat(2, 1fr);
-      align-items: center; justify-items: center;
+      pointer-events: none; z-index: 100;
     }
     .content-wrapper {
       position: relative;
       min-height: fit-content;
-    }
-    .watermark-text {
-      font-size: 180px; font-weight: 700;
-      color: rgba(255, 255, 255, 0.06);
-      white-space: nowrap;
-      transform: rotate(-20deg);
-      user-select: none;
     }
     .card {
       background: linear-gradient(135deg, rgba(255,250,245,0.85) 0%, rgba(255,252,248,0.88) 50%, rgba(250,245,255,0.85) 100%);
@@ -594,13 +584,15 @@ def generate_html(flowchart: Flowchart) -> str:
 </head>
 <body class="p-5">
   <div class="content-wrapper">
-    <div class="watermark-bg" id="watermark-bg">
-      <div class="watermark-text">''' + flowchart.watermark + '''</div>
-      <div class="watermark-text">''' + flowchart.watermark + '''</div>
-      <div class="watermark-text">''' + flowchart.watermark + '''</div>
-      <div class="watermark-text">''' + flowchart.watermark + '''</div>
-    </div>
-    <div class="relative z-10 max-w-[800px] mx-auto space-y-5" id="content">
+    <svg class="watermark-svg" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="watermark-pattern" patternUnits="userSpaceOnUse" width="450" height="300" patternTransform="rotate(-20)">
+          <text x="30" y="150" font-size="60" font-weight="700" fill="rgba(255,255,255,0.06)" font-family="'Noto Sans SC', 'PingFang SC', sans-serif">''' + flowchart.watermark + '''</text>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#watermark-pattern)"/>
+    </svg>
+    <div class="relative z-10 mx-auto space-y-5" style="max-width: 800px;" id="content">
 ''')
     
     # 生成每个 subgraph 的卡片
@@ -656,9 +648,140 @@ def generate_html(flowchart: Flowchart) -> str:
         # 检测是否有分叉结构
         has_fork = len(fork_nodes) > 0
         
+        # 检测是否有多条独立分支（链路之间无连接）
+        # 两种情况：
+        # 1. 多个独立分叉：每个分叉节点及其子节点形成独立分支
+        # 2. 多个独立线性链路：无分叉，但有多个根节点
+        independent_branches = []
+        has_parallel_branches = False
+        
+        if has_fork and len(fork_nodes) >= 2:
+            # 检测是否是"多个独立分叉"：分叉节点之间无连接
+            fork_ids = [f.id for f in fork_nodes]
+            forks_connected = False
+            for from_id, to_id in sg_connections:
+                if from_id in fork_ids and to_id in fork_ids:
+                    forks_connected = True
+                    break
+            
+            if not forks_connected:
+                # 每个分叉节点及其所有子节点（含子节点的子节点）形成独立分支
+                used_in_branch = set()
+                for fork in fork_nodes:
+                    if fork.id in used_in_branch:
+                        continue
+                    branch_nodes = [fork]
+                    used_in_branch.add(fork.id)
+                    # 收集所有子节点（递归）
+                    children_ids = parent_to_children.get(fork.id, [])
+                    for child_id in children_ids:
+                        if child_id not in used_in_branch:
+                            child_node = node_map.get(child_id)
+                            if child_node:
+                                branch_nodes.append(child_node)
+                                used_in_branch.add(child_id)
+                            # 继续收集子节点的子节点
+                            sub_children_ids = parent_to_children.get(child_id, [])
+                            for sub_child_id in sub_children_ids:
+                                if sub_child_id not in used_in_branch:
+                                    sub_child_node = node_map.get(sub_child_id)
+                                    if sub_child_node:
+                                        branch_nodes.append(sub_child_node)
+                                        used_in_branch.add(sub_child_id)
+                    
+                    independent_branches.append(branch_nodes)
+                
+                if len(independent_branches) >= 2:
+                    has_parallel_branches = True
+        
+        elif not has_fork and len(sg_connections) > 0:
+            # 无分叉，但有多个根节点 → 多条独立线性链路
+            root_ids = [n.id for n in sg.nodes if n.id not in child_to_parent]
+            used_in_branch = set()
+            for root_id in root_ids:
+                if root_id in used_in_branch:
+                    continue
+                branch_nodes = []
+                current_id = root_id
+                while current_id:
+                    if current_id in used_in_branch:
+                        break
+                    node = node_map.get(current_id)
+                    if node:
+                        branch_nodes.append(node)
+                        used_in_branch.add(current_id)
+                    children = parent_to_children.get(current_id, [])
+                    current_id = children[0] if children else None
+                
+                if branch_nodes:
+                    independent_branches.append(branch_nodes)
+            
+            if len(independent_branches) >= 2:
+                has_parallel_branches = True
+        
         nodes_html = ''
         
-        if is_terminal_style:
+        if has_parallel_branches:
+            # 多分支并排卡片布局：每个分叉节点一个卡片，父节点顶部，子节点并列下方
+            # 分支数>=4时用grid布局（2行2列），否则用flex横向排列
+            if len(independent_branches) >= 4:
+                nodes_html = '<div class="grid grid-cols-2 gap-4">'
+            else:
+                nodes_html = '<div class="flex gap-4 items-stretch">'
+            
+            for branch_idx, branch in enumerate(independent_branches):
+                # 每个分支一个小卡片
+                branch_card_class = card_colors[branch_idx % len(card_colors)]
+                nodes_html += f'<div class="card {branch_card_class} p-4 flex-1">'
+                
+                # 分支内：父节点 → 箭头 → 子节点并列
+                nodes_html += '<div class="space-y-3">'
+                
+                # 找出分支中的父节点（第一个节点，有子节点）和子节点
+                parent_node = branch[0] if branch else None
+                child_nodes = branch[1:] if len(branch) > 1 else []
+                
+                # 渲染父节点
+                if parent_node:
+                    node_class = node_colors[branch_idx % len(node_colors)]
+                    title_br = parent_node.title.replace('\n', '<br>')
+                    desc_br = parent_node.desc.replace('\n', '<br>') if parent_node.desc else ''
+                    desc_html = f'<div class="node-desc text-sm">{desc_br}</div>' if desc_br else ''
+                    icon_html = icon_to_html(parent_node.icon) if parent_node.icon else ''
+                    icon_div = f'<div class="node-icon text-lg mb-1">{icon_html}</div>' if icon_html else ''
+                    
+                    nodes_html += f'''
+                    <div class="node-card {node_class} p-3 text-center">
+                      {icon_div}<div class="node-title text-base">{title_br}</div>
+                      {desc_html}
+                    </div>'''
+                
+                # 箭头
+                if child_nodes:
+                    nodes_html += '<div class="text-center text-gray-400 text-lg">↓</div>'
+                    
+                    # 子节点并列
+                    nodes_html += '<div class="flex gap-2 justify-center">'
+                    for child_idx, child_node in enumerate(child_nodes):
+                        node_class = node_colors[(branch_idx + child_idx + 1) % len(node_colors)]
+                        title_br = child_node.title.replace('\n', '<br>')
+                        desc_br = child_node.desc.replace('\n', '<br>') if child_node.desc else ''
+                        desc_html = f'<div class="node-desc text-xs">{desc_br}</div>' if desc_br else ''
+                        # 三级节点不显示icon
+                        icon_div = ''
+
+                        nodes_html += f'''
+                        <div class="node-card {node_class} p-2 text-center" style="min-width: 80px;">
+                          <div class="node-title text-sm">{title_br}</div>
+                          {desc_html}
+                        </div>'''
+                    nodes_html += '</div>'
+                
+                nodes_html += '</div></div>'
+            
+            nodes_html += '</div>'
+        
+        elif is_terminal_style:
             # 终端应用布局：所有项用小方块并排
             # 检查是否需要渲染描述（如果有desc非空）
             has_desc = any(desc for _, desc, _ in terminal_items)
@@ -758,12 +881,12 @@ def generate_html(flowchart: Flowchart) -> str:
                     title_br = child.title.replace('\n', '<br>')
                     desc_br = child.desc.replace('\n', '<br>') if child.desc else ''
                     desc_html = f'<div class="node-desc text-sm">{desc_br}</div>' if desc_br else ''
-                    icon_html = icon_to_html(child.icon) if child.icon else ''
-                    icon_div = f'<div class="node-icon text-lg mb-1">{icon_html}</div>' if icon_html else ''
-                    
+                    # 三级节点不显示icon
+                    icon_div = ''
+
                     nodes_html += f'''
                     <div class="node-card {node_class} p-3 text-center" style="min-width: 120px;">
-                      {icon_div}<div class="node-title text-base">{title_br}</div>
+                      <div class="node-title text-base">{title_br}</div>
                       {desc_html}
                     </div>'''
                     rendered_nodes.add(child.id)
@@ -782,11 +905,11 @@ def generate_html(flowchart: Flowchart) -> str:
                                 title_br = sub_child.title.replace('\n', '<br>')
                                 desc_br = sub_child.desc.replace('\n', '<br>') if sub_child.desc else ''
                                 desc_html = f'<div class="node-desc text-sm">{desc_br}</div>' if desc_br else ''
-                                icon_html = icon_to_html(sub_child.icon) if sub_child.icon else ''
-                                icon_div = f'<div class="node-icon text-lg mb-1">{icon_html}</div>' if icon_html else ''
+                                # 四级节点不显示icon
+                                icon_div = ''
                                 nodes_html += f'''
                                 <div class="node-card {node_class} p-3 text-center" style="min-width: 120px;">
-                                  {icon_div}<div class="node-title text-base">{title_br}</div>
+                                  <div class="node-title text-base">{title_br}</div>
                                   {desc_html}
                                 </div>'''
                                 rendered_nodes.add(sub_child.id)
@@ -806,8 +929,12 @@ def generate_html(flowchart: Flowchart) -> str:
                         title_br = node.title.replace('\n', '<br>')
                         desc_br = node.desc.replace('\n', '<br>') if node.desc else ''
                         desc_html = f'<div class="node-desc">{desc_br}</div>' if desc_br else ''
-                        icon_html = icon_to_html(node.icon) if node.icon else ''
-                        icon_div = f'<div class="node-icon text-xl mb-1">{icon_html}</div>' if icon_html else ''
+                        # 链路中：首节点保留icon（二级），其余移除（三级）
+                        if n_idx == 0:
+                            icon_html = icon_to_html(node.icon) if node.icon else ''
+                            icon_div = f'<div class="node-icon text-xl mb-1">{icon_html}</div>' if icon_html else ''
+                        else:
+                            icon_div = ''
                         nodes_html += f'''
                         <div class="node-card {node_class} p-4 text-center">
                           {icon_div}<div class="node-title">{title_br}</div>
@@ -832,8 +959,12 @@ def generate_html(flowchart: Flowchart) -> str:
                     title_br = node.title.replace('\n', '<br>')
                     desc_br = node.desc.replace('\n', '<br>') if node.desc else ''
                     desc_html = f'<div class="node-desc">{desc_br}</div>' if desc_br else ''
-                    icon_html = icon_to_html(node.icon) if node.icon else ''
-                    icon_div = f'<div class="node-icon text-xl mb-1">{icon_html}</div>' if icon_html else ''
+                    # 链路首节点保留icon（二级），其余移除（三级）
+                    if n_idx == 0:
+                        icon_html = icon_to_html(node.icon) if node.icon else ''
+                        icon_div = f'<div class="node-icon text-xl mb-1">{icon_html}</div>' if icon_html else ''
+                    else:
+                        icon_div = ''
                     nodes_html += f'''
                     <div class="node-card {node_class} p-5 flex-1 text-center">
                       {icon_div}<div class="node-title">{title_br}</div>
@@ -851,8 +982,12 @@ def generate_html(flowchart: Flowchart) -> str:
                         title_br = node.title.replace('\n', '<br>')
                         desc_br = node.desc.replace('\n', '<br>') if node.desc else ''
                         desc_html = f'<div class="node-desc">{desc_br}</div>' if desc_br else ''
-                        icon_html = icon_to_html(node.icon) if node.icon else ''
-                        icon_div = f'<div class="node-icon text-xl mb-1">{icon_html}</div>' if icon_html else ''
+                        # 链路首节点保留icon（二级），其余移除（三级）
+                        if node_idx == 0:
+                            icon_html = icon_to_html(node.icon) if node.icon else ''
+                            icon_div = f'<div class="node-icon text-xl mb-1">{icon_html}</div>' if icon_html else ''
+                        else:
+                            icon_div = ''
                         
                         nodes_html += f'''
                         <div class="node-card {node_class} p-4 text-center">
