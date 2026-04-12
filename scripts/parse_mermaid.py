@@ -240,12 +240,18 @@ def parse_mermaid(text: str) -> Flowchart:
     for line in lines:
         line_stripped = line.strip()
         
-        # 检测 %%{init}%% 配置块开始
+        # 检测 %%{init}%% 配置块（单行或多行）
         if line_stripped.startswith('%%{init'):
-            in_init_block = True
-            continue
+            # 检查是否是单行格式 %%{init: ... }%% 或 %%{init: ... }}%%
+            if '%%' in line_stripped[line_stripped.find('{')+1:]:
+                # 单行格式，直接跳过
+                continue
+            else:
+                # 多行格式，进入 init_block 状态
+                in_init_block = True
+                continue
         
-        # 检测 %%{init}%% 配置块结束
+        # 检测 %%{init}%% 多行配置块结束
         if in_init_block:
             if '%%' in line_stripped and '}' in line_stripped:
                 in_init_block = False
@@ -515,10 +521,151 @@ def icon_to_html(icon: str) -> str:
     return icon
 
 
-def generate_html(flowchart: Flowchart) -> str:
+# 主题配置字典（多主题切换 v1.9）
+THEMES = {
+    'instagram': {
+        'name': 'Instagram 风格',
+        'background': 'linear-gradient(135deg, #833ab4 0%, #fd1d1d 50%, #fcb045 100%)',
+        'watermark_color': 'rgba(255,255,255,0.06)',
+        'card_base': 'linear-gradient(135deg, rgba(255,250,245,0.85) 0%, rgba(255,252,248,0.88) 50%, rgba(250,245,255,0.85) 100%)',
+        'card_1': 'linear-gradient(135deg, rgba(250,245,255,0.82) 0%, rgba(255,250,245,0.85) 50%, rgba(255,245,250,0.82) 100%)',
+        'card_2': 'linear-gradient(135deg, rgba(255,245,250,0.82) 0%, rgba(250,255,245,0.85) 50%, rgba(245,250,255,0.82) 100%)',
+        'card_3': 'linear-gradient(135deg, rgba(245,250,255,0.82) 0%, rgba(250,245,255,0.85) 50%, rgba(255,250,245,0.82) 100%)',
+        'card_4': 'linear-gradient(135deg, rgba(255,250,245,0.82) 0%, rgba(245,255,250,0.85) 50%, rgba(250,245,255,0.82) 100%)',
+        'node_card': 'rgba(255,255,255,0.88)',
+        'node_border': 'rgba(255,255,255,0.6)',
+        'node_1': 'linear-gradient(135deg, #fef7f7 0%, #fce8e8 100%)',
+        'node_2': 'linear-gradient(135deg, #fef9f3 0%, #fde9d9 100%)',
+        'node_3': 'linear-gradient(135deg, #fef8f0 0%, #fde5cc 100%)',
+        'node_4': 'linear-gradient(135deg, #f4fef7 0%, #dcf8e3 100%)',
+        'node_5': 'linear-gradient(135deg, #f3f7fe 0%, #dce5f8 100%)',
+        'node_6': 'linear-gradient(135deg, #f8f5fe 0%, #e8dcf8 100%)',
+        'title_color': '#1a1a1a',
+        'desc_color': '#3a3a3a',
+        'icon_color': '#833ab4',
+        'arrow_color': 'text-gray-400',
+    },
+    'xiaohongshu': {
+        'name': '小红书风格',
+        'background': 'linear-gradient(135deg, #ff6b81 0%, #ff8a9b 40%, #ffc3d0 100%)',
+        'watermark_color': 'rgba(255,255,255,0.08)',
+        'card_base': 'linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(255,250,250,0.94) 50%, rgba(250,255,255,0.92) 100%)',
+        'card_1': 'linear-gradient(135deg, rgba(255,245,250,0.9) 0%, rgba(255,250,255,0.92) 50%, rgba(255,255,250,0.9) 100%)',
+        'card_2': 'linear-gradient(135deg, rgba(255,250,255,0.9) 0%, rgba(255,255,250,0.92) 50%, rgba(255,245,250,0.9) 100%)',
+        'card_3': 'linear-gradient(135deg, rgba(255,255,250,0.9) 0%, rgba(255,245,250,0.92) 50%, rgba(250,255,255,0.9) 100%)',
+        'card_4': 'linear-gradient(135deg, rgba(250,255,255,0.9) 0%, rgba(255,255,250,0.92) 50%, rgba(255,250,255,0.9) 100%)',
+        'node_card': 'rgba(255,255,255,0.95)',
+        'node_border': 'rgba(255,180,200,0.3)',
+        'node_1': 'linear-gradient(135deg, #fff5f5 0%, #ffe8ec 100%)',
+        'node_2': 'linear-gradient(135deg, #fff8f5 0%, #ffece8 100%)',
+        'node_3': 'linear-gradient(135deg, #fffcf5 0%, #fff5ec 100%)',
+        'node_4': 'linear-gradient(135deg, #f5fff8 0%, #e8ffec 100%)',
+        'node_5': 'linear-gradient(135deg, #f5f8ff 0%, #e8ecff 100%)',
+        'node_6': 'linear-gradient(135deg, #fff8f5 0%, #ffe8ec 100%)',
+        'title_color': '#2d2d2d',
+        'desc_color': '#5a5a5a',
+        'icon_color': '#ff6b81',
+        'arrow_color': 'text-pink-400',
+    },
+    'business': {
+        'name': '商务简报风格',
+        'background': 'linear-gradient(135deg, #1a365d 0%, #2c5282 50%, #3182ce 100%)',
+        'watermark_color': 'rgba(255,255,255,0.05)',
+        'card_base': 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(245,250,255,0.96) 50%, rgba(240,245,250,0.95) 100%)',
+        'card_1': 'linear-gradient(135deg, rgba(245,250,255,0.92) 0%, rgba(240,248,255,0.94) 50%, rgba(235,245,255,0.92) 100%)',
+        'card_2': 'linear-gradient(135deg, rgba(240,255,250,0.92) 0%, rgba(235,255,248,0.94) 50%, rgba(240,255,245,0.92) 100%)',
+        'card_3': 'linear-gradient(135deg, rgba(255,250,245,0.92) 0%, rgba(255,248,240,0.94) 50%, rgba(255,245,235,0.92) 100%)',
+        'card_4': 'linear-gradient(135deg, rgba(255,255,250,0.92) 0%, rgba(255,255,245,0.94) 50%, rgba(255,255,240,0.92) 100%)',
+        'node_card': 'rgba(255,255,255,0.96)',
+        'node_border': 'rgba(200,210,220,0.4)',
+        'node_1': 'linear-gradient(135deg, #f0f5ff 0%, #e0e8f5 100%)',
+        'node_2': 'linear-gradient(135deg, #f5f8ff 0%, #e8ecf5 100%)',
+        'node_3': 'linear-gradient(135deg, #f8faff 0%, #ecf0f5 100%)',
+        'node_4': 'linear-gradient(135deg, #f5fff5 0%, #e8f5e8 100%)',
+        'node_5': 'linear-gradient(135deg, #fffaf5 0%, #f5eae0 100%)',
+        'node_6': 'linear-gradient(135deg, #f5f0ff 0%, #e8e0f5 100%)',
+        'title_color': '#1a365d',
+        'desc_color': '#4a5568',
+        'icon_color': '#2c5282',
+        'arrow_color': 'text-blue-600',
+    },
+    'darktech': {
+        'name': '暗黑科技风格',
+        'background': 'linear-gradient(135deg, #0d0d0d 0%, #1a1a2e 50%, #16213e 100%)',
+        'watermark_color': 'rgba(100,100,150,0.08)',
+        'card_base': 'linear-gradient(135deg, rgba(30,30,50,0.88) 0%, rgba(40,40,60,0.9) 50%, rgba(35,35,55,0.88) 100%)',
+        'card_1': 'linear-gradient(135deg, rgba(35,35,55,0.85) 0%, rgba(45,45,65,0.88) 50%, rgba(40,40,60,0.85) 100%)',
+        'card_2': 'linear-gradient(135deg, rgba(40,40,60,0.85) 0%, rgba(50,50,70,0.88) 50%, rgba(45,45,65,0.85) 100%)',
+        'card_3': 'linear-gradient(135deg, rgba(45,45,65,0.85) 0%, rgba(55,55,75,0.88) 50%, rgba(50,50,70,0.85) 100%)',
+        'card_4': 'linear-gradient(135deg, rgba(50,50,70,0.85) 0%, rgba(60,60,80,0.88) 50%, rgba(55,55,75,0.85) 100%)',
+        'node_card': 'rgba(50,50,70,0.92)',
+        'node_border': 'rgba(100,100,150,0.3)',
+        'node_1': 'linear-gradient(135deg, #252545 0%, #353565 100%)',
+        'node_2': 'linear-gradient(135deg, #303050 0%, #404060 100%)',
+        'node_3': 'linear-gradient(135deg, #353555 0%, #454565 100%)',
+        'node_4': 'linear-gradient(135deg, #2a3545 0%, #3a4555 100%)',
+        'node_5': 'linear-gradient(135deg, #353050 0%, #454060 100%)',
+        'node_6': 'linear-gradient(135deg, #302545 0%, #403555 100%)',
+        'title_color': '#e0e0e8',
+        'desc_color': '#a0a0b0',
+        'icon_color': '#8b5cf6',
+        'arrow_color': 'text-violet-400',
+    },
+    'warm': {
+        'name': '温暖柔和风格',
+        'background': 'linear-gradient(135deg, #fef3c7 0%, #fcd9b8 50%, #fbbf24 100%)',
+        'watermark_color': 'rgba(255,255,255,0.08)',
+        'card_base': 'linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(255,250,245,0.94) 50%, rgba(255,245,240,0.92) 100%)',
+        'card_1': 'linear-gradient(135deg, rgba(255,250,245,0.9) 0%, rgba(255,245,240,0.92) 50%, rgba(250,245,240,0.9) 100%)',
+        'card_2': 'linear-gradient(135deg, rgba(255,245,240,0.9) 0%, rgba(250,240,245,0.92) 50%, rgba(245,240,250,0.9) 100%)',
+        'card_3': 'linear-gradient(135deg, rgba(250,245,240,0.9) 0%, rgba(245,240,250,0.92) 50%, rgba(240,250,245,0.9) 100%)',
+        'card_4': 'linear-gradient(135deg, rgba(245,250,240,0.9) 0%, rgba(240,255,245,0.92) 50%, rgba(250,255,240,0.9) 100%)',
+        'node_card': 'rgba(255,255,255,0.95)',
+        'node_border': 'rgba(250,200,150,0.3)',
+        'node_1': 'linear-gradient(135deg, #fffaf5 0%, #fff0e5 100%)',
+        'node_2': 'linear-gradient(135deg, #fff8f0 0%, #ffe8d8 100%)',
+        'node_3': 'linear-gradient(135deg, #fff5eb 0%, #ffe5d5 100%)',
+        'node_4': 'linear-gradient(135deg, #f5fff0 0%, #e8ffd8 100%)',
+        'node_5': 'linear-gradient(135deg, #f0fff5 0%, #d8ffe8 100%)',
+        'node_6': 'linear-gradient(135deg, #fff0f5 0%, #ffd8e8 100%)',
+        'title_color': '#5a4030',
+        'desc_color': '#7a6050',
+        'icon_color': '#f59e0b',
+        'arrow_color': 'text-amber-500',
+    },
+    'minimal': {
+        'name': '极简黑白风格',
+        'background': 'linear-gradient(135deg, #ffffff 0%, #f5f5f5 50%, #e8e8e8 100%)',
+        'watermark_color': 'rgba(0,0,0,0.04)',
+        'card_base': 'linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(250,250,250,0.99) 50%, rgba(245,245,245,0.98) 100%)',
+        'card_1': 'linear-gradient(135deg, rgba(255,255,255,0.96) 0%, rgba(250,250,250,0.98) 50%, rgba(248,248,248,0.96) 100%)',
+        'card_2': 'linear-gradient(135deg, rgba(250,250,255,0.96) 0%, rgba(248,248,255,0.98) 50%, rgba(245,245,255,0.96) 100%)',
+        'card_3': 'linear-gradient(135deg, rgba(255,250,250,0.96) 0%, rgba(255,248,248,0.98) 50%, rgba(255,245,245,0.96) 100%)',
+        'card_4': 'linear-gradient(135deg, rgba(250,255,250,0.96) 0%, rgba(248,255,248,0.98) 50%, rgba(245,255,245,0.96) 100%)',
+        'node_card': 'rgba(255,255,255,0.98)',
+        'node_border': 'rgba(0,0,0,0.08)',
+        'node_1': 'linear-gradient(135deg, #ffffff 0%, #f8f8f8 100%)',
+        'node_2': 'linear-gradient(135deg, #f8f8f8 0%, #f0f0f0 100%)',
+        'node_3': 'linear-gradient(135deg, #f0f0f0 0%, #e8e8e8 100%)',
+        'node_4': 'linear-gradient(135deg, #f5f5f5 0%, #ebebeb 100%)',
+        'node_5': 'linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%)',
+        'node_6': 'linear-gradient(135deg, #f8f8f8 0%, #f2f2f2 100%)',
+        'title_color': '#1a1a1a',
+        'desc_color': '#4a4a4a',
+        'icon_color': '#404040',
+        'arrow_color': 'text-gray-500',
+    },
+}
+
+
+def generate_html(flowchart: Flowchart, theme: str = 'instagram') -> str:
     """
-    生成 Instagram 风格 HTML
+    生成指定主题风格的 HTML
+    theme: instagram, xiaohongshu, business, darktech, warm, minimal
     """
+    
+    # 获取主题配置
+    t = THEMES.get(theme, THEMES['instagram'])
     
     # 节点配色类
     node_colors = ['node-1', 'node-2', 'node-3', 'node-4', 'node-5', 'node-6']
@@ -528,7 +675,7 @@ def generate_html(flowchart: Flowchart) -> str:
     
     html_parts = []
     
-    # HTML 头部
+    # HTML 头部 - 使用主题样式
     html_parts.append('''<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -541,7 +688,7 @@ def generate_html(flowchart: Flowchart) -> str:
   <style>
     * { font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif; }
     body {
-      background: linear-gradient(135deg, #833ab4 0%, #fd1d1d 50%, #fcb045 100%);
+      background: ''' + t['background'] + ''';
       padding-bottom: 20px;
     }
     /* SVG水印层 - 自动重复铺满 */
@@ -554,32 +701,34 @@ def generate_html(flowchart: Flowchart) -> str:
       min-height: fit-content;
     }
     .card {
-      background: linear-gradient(135deg, rgba(255,250,245,0.85) 0%, rgba(255,252,248,0.88) 50%, rgba(250,245,255,0.85) 100%);
+      background: ''' + t['card_base'] + ''';
       backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
       border-radius: 16px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.12);
-      border: 1px solid rgba(255,255,255,0.4);
+      border: 1px solid ''' + t['node_border'] + ''';
     }
-    .card-1 { background: linear-gradient(135deg, rgba(250,245,255,0.82) 0%, rgba(255,250,245,0.85) 50%, rgba(255,245,250,0.82) 100%); }
-    .card-2 { background: linear-gradient(135deg, rgba(255,245,250,0.82) 0%, rgba(250,255,245,0.85) 50%, rgba(245,250,255,0.82) 100%); }
-    .card-3 { background: linear-gradient(135deg, rgba(245,250,255,0.82) 0%, rgba(250,245,255,0.85) 50%, rgba(255,250,245,0.82) 100%); }
-    .card-4 { background: linear-gradient(135deg, rgba(255,250,245,0.82) 0%, rgba(245,255,250,0.85) 50%, rgba(250,245,255,0.82) 100%); }
+    .card-1 { background: ''' + t['card_1'] + '''; }
+    .card-2 { background: ''' + t['card_2'] + '''; }
+    .card-3 { background: ''' + t['card_3'] + '''; }
+    .card-4 { background: ''' + t['card_4'] + '''; }
     .node-card {
-      background: rgba(255,255,255,0.88);
+      background: ''' + t['node_card'] + ''';
       border-radius: 12px;
       box-shadow: 0 3px 12px rgba(0,0,0,0.08);
-      border: 1px solid rgba(255,255,255,0.6);
+      border: 1px solid ''' + t['node_border'] + ''';
     }
-    .section-title { font-size: 24px; font-weight: 700; color: #1a1a1a; margin-bottom: 14px; text-align: center; }
-    .node-title { font-size: 19px; font-weight: 600; color: #1a1a1a; line-height: 1.4; }
-    .node-desc { font-size: 15px; font-weight: 400; color: #3a3a3a; line-height: 1.5; margin-top: 6px; }
-    .node-icon { color: #833ab4; opacity: 0.85; margin-bottom: 8px; }
-    .node-1 { background: linear-gradient(135deg, #fef7f7 0%, #fce8e8 100%); }
-    .node-2 { background: linear-gradient(135deg, #fef9f3 0%, #fde9d9 100%); }
-    .node-3 { background: linear-gradient(135deg, #fef8f0 0%, #fde5cc 100%); }
-    .node-4 { background: linear-gradient(135deg, #f4fef7 0%, #dcf8e3 100%); }
-    .node-5 { background: linear-gradient(135deg, #f3f7fe 0%, #dce5f8 100%); }
-    .node-6 { background: linear-gradient(135deg, #f8f5fe 0%, #e8dcf8 100%); }
+    .section-title { font-size: 24px; font-weight: 700; color: ''' + t['title_color'] + '''; margin-bottom: 14px; text-align: center; }
+    .node-title { font-size: 19px; font-weight: 600; color: ''' + t['title_color'] + '''; line-height: 1.4; }
+    .node-desc { font-size: 15px; font-weight: 400; color: ''' + t['desc_color'] + '''; line-height: 1.5; margin-top: 6px; }
+    .node-icon { color: ''' + t['icon_color'] + '''; opacity: 0.85; margin-bottom: 8px; }
+    .node-1 { background: ''' + t['node_1'] + '''; }
+    .node-2 { background: ''' + t['node_2'] + '''; }
+    .node-3 { background: ''' + t['node_3'] + '''; }
+    .node-4 { background: ''' + t['node_4'] + '''; }
+    .node-5 { background: ''' + t['node_5'] + '''; }
+    .node-6 { background: ''' + t['node_6'] + '''; }
+    /* 主题箭头颜色 */
+    .arrow-color { color: ''' + t['icon_color'] + '''; opacity: 0.6; }
   </style>
 </head>
 <body class="p-5">
@@ -587,7 +736,7 @@ def generate_html(flowchart: Flowchart) -> str:
     <svg class="watermark-svg" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <pattern id="watermark-pattern" patternUnits="userSpaceOnUse" width="450" height="300" patternTransform="rotate(-20)">
-          <text x="30" y="150" font-size="60" font-weight="700" fill="rgba(255,255,255,0.06)" font-family="'Noto Sans SC', 'PingFang SC', sans-serif">''' + flowchart.watermark + '''</text>
+          <text x="30" y="150" font-size="60" font-weight="700" fill="''' + t['watermark_color'] + '''" font-family="'Noto Sans SC', 'PingFang SC', sans-serif">''' + flowchart.watermark + '''</text>
         </pattern>
       </defs>
       <rect width="100%" height="100%" fill="url(#watermark-pattern)"/>
@@ -1043,16 +1192,231 @@ def generate_html(flowchart: Flowchart) -> str:
     return '\n'.join(html_parts)
 
 
+def parse_markdown(text: str) -> Flowchart:
+    """
+    解析 Markdown 层级结构
+    
+    支持的格式:
+    - # 一级标题 → 整体标题 (可选，默认"产业链图谱")
+    - ## 二级标题 → subgraph 区块
+    - ### 三级标题 → 节点标题，下一行作为描述
+    - 列表项 `- xxx` → 节点标题（无描述）
+    - `→ xxx` 或 `--> xxx` → 表示当前区块连接到下一个区块
+    - 空行分隔不同区块
+    
+    特殊语法:
+    - 标题开头的emoji自动识别为icon (如 `## 🏭 上游材料层`)
+    - 标题中的 `|` 分隔标题和描述 (如 `### 冷却液 | 氟化液/硅基液`)
+    
+    示例:
+    # 液冷产业链
+    
+    ## 上游材料层
+    
+    ### 冷却液
+    氟化液/硅基液
+    
+    ### 金属材料
+    铜/铝/金刚石铜
+    
+    → 核心部件层
+    
+    ## 核心部件层
+    
+    ### 液冷板
+    微通道结构
+    
+    ### CDU
+    分配单元
+    
+    → 系统集成层
+    
+    ## 系统集成层
+    
+    ### 液冷服务器
+    整机柜方案
+    
+    ## 下游应用层
+    
+    - AI智算中心
+    - 科学研究
+    - 云计算互联网
+    """
+    flowchart = Flowchart()
+    
+    lines = text.split('\n')
+    current_subgraph: Optional[Subgraph] = None
+    current_node: Optional[Node] = None
+    node_counter = 0  # 用于生成节点ID
+    pending_connection_to: Optional[str] = None  # 待处理的跨区块连接
+    
+    for line in lines:
+        line_stripped = line.strip()
+        
+        # 跳过空行
+        if not line_stripped:
+            # 空行结束当前节点描述收集
+            current_node = None
+            continue
+        
+        # 一级标题 → 整体标题
+        if line_stripped.startswith('# ') and not line_stripped.startswith('##'):
+            title = line_stripped[2:].strip()
+            # 移除可能的emoji
+            title = remove_emoji(title)
+            flowchart.title = title
+            continue
+        
+        # 二级标题 → subgraph 区块
+        if line_stripped.startswith('## ') and not line_stripped.startswith('###'):
+            # 先处理跨区块连接（如果有）
+            if pending_connection_to and current_subgraph:
+                # 当前subgraph的最后一个节点连接到目标subgraph
+                if current_subgraph.nodes:
+                    last_node_id = current_subgraph.nodes[-1].id
+                    flowchart.all_connections.append((last_node_id, pending_connection_to))
+                pending_connection_to = None
+            
+            # 开始新的subgraph
+            sg_title_raw = line_stripped[3:].strip()
+            sg_icon, sg_title, _ = parse_node_content(sg_title_raw)
+            sg_id = f"sg{len(flowchart.subgraphs) + 1}"
+            current_subgraph = Subgraph(id=sg_id, title=sg_title, icon=sg_icon)
+            flowchart.subgraphs.append(current_subgraph)
+            current_node = None
+            continue
+        
+        # 三级标题 → 节点标题（下一行作为描述）
+        if line_stripped.startswith('### '):
+            if current_subgraph is None:
+                # 没有##标题时创建默认subgraph
+                current_subgraph = Subgraph(id="sg1", title=flowchart.title)
+                flowchart.subgraphs.append(current_subgraph)
+            
+            node_counter += 1
+            node_id = f"n{node_counter}"
+            
+            # 解析标题
+            title_raw = line_stripped[4:].strip()
+            
+            # 支持 `|` 分隔标题和描述
+            if '|' in title_raw:
+                parts = title_raw.split('|', 1)
+                title_part = parts[0].strip()
+                desc_part = parts[1].strip() if len(parts) > 1 else ''
+                icon, title, _ = parse_node_content(title_part)
+                desc = desc_part
+            else:
+                icon, title, desc = parse_node_content(title_raw)
+                # 描述可能由下一行提供，暂时设为空
+                desc = ""
+            
+            current_node = Node(id=node_id, title=title, desc=desc, icon=icon, subgraph=current_subgraph.id)
+            current_subgraph.nodes.append(current_node)
+            flowchart.all_nodes[node_id] = current_node
+            continue
+        
+        # 列表项 `- xxx` → 节点（无描述）
+        if line_stripped.startswith('- ') or line_stripped.startswith('* '):
+            if current_subgraph is None:
+                # 没有##标题时创建默认subgraph
+                current_subgraph = Subgraph(id="sg1", title=flowchart.title)
+                flowchart.subgraphs.append(current_subgraph)
+            
+            node_counter += 1
+            node_id = f"n{node_counter}"
+            
+            title_raw = line_stripped[2:].strip()
+            # 支持 `|` 分隔标题和描述
+            if '|' in title_raw:
+                parts = title_raw.split('|', 1)
+                title_part = parts[0].strip()
+                desc_part = parts[1].strip() if len(parts) > 1 else ''
+                icon, title, _ = parse_node_content(title_part)
+                desc = desc_part
+            else:
+                icon, title, desc = parse_node_content(title_raw)
+            
+            node = Node(id=node_id, title=title, desc=desc, icon=icon, subgraph=current_subgraph.id)
+            current_subgraph.nodes.append(node)
+            flowchart.all_nodes[node_id] = node
+            current_node = None  # 列表项不收集描述
+            continue
+        
+        # 跨区块连接 `→ xxx` 或 `--> xxx`
+        if line_stripped.startswith('→') or line_stripped.startswith('-->'):
+            # 提取目标区块名称
+            target_name = line_stripped.replace('→', '').replace('-->', '').strip()
+            # 目标subgraph的ID（将在后续解析时确定）
+            pending_connection_to = target_name  # 临时存储目标名称
+            current_node = None
+            continue
+        
+        # 其他行 → 可能是当前节点的描述
+        if current_node and current_subgraph:
+            # 如果当前节点还没有描述，这一行作为描述
+            if not current_node.desc:
+                current_node.desc = line_stripped
+            else:
+                # 多行描述用换行符连接
+                current_node.desc += '\n' + line_stripped
+    
+    # 处理最后的跨区块连接
+    if pending_connection_to and current_subgraph and current_subgraph.nodes:
+        # 找到目标subgraph
+        target_sg = next((sg for sg in flowchart.subgraphs if sg.title == pending_connection_to or pending_connection_to in sg.title), None)
+        if target_sg and target_sg.nodes:
+            last_node_id = current_subgraph.nodes[-1].id
+            first_node_id = target_sg.nodes[0].id
+            flowchart.all_connections.append((last_node_id, first_node_id))
+    
+    # 自动建立subgraph间的连接（如果subgraph标题包含"上游"、"中游"、"下游"等顺序词）
+    order_keywords = ['上游', '中游', '下游', '材料', '部件', '系统', '应用', '第一', '第二', '第三', '核心', '集成']
+    for i in range(len(flowchart.subgraphs) - 1):
+        sg1 = flowchart.subgraphs[i]
+        sg2 = flowchart.subgraphs[i + 1]
+        
+        # 检查是否已有连接
+        sg1_node_ids = [n.id for n in sg1.nodes]
+        sg2_node_ids = [n.id for n in sg2.nodes]
+        has_connection = any(f in sg1_node_ids and t in sg2_node_ids for f, t in flowchart.all_connections)
+        
+        if not has_connection and sg1.nodes and sg2.nodes:
+            # 自动连接：前一区块最后一个节点 → 后一区块第一个节点
+            flowchart.all_connections.append((sg1.nodes[-1].id, sg2.nodes[0].id))
+    
+    # 如果没有subgraph，创建一个默认的
+    if not flowchart.subgraphs and flowchart.all_nodes:
+        default_sg = Subgraph(id="default", title=flowchart.title)
+        for node in flowchart.all_nodes.values():
+            node.subgraph = "default"
+            default_sg.nodes.append(node)
+        flowchart.subgraphs.append(default_sg)
+    
+    return flowchart
+
+
 def main():
-    parser = argparse.ArgumentParser(description='Mermaid Flowchart TD 解析器')
-    parser.add_argument('input', nargs='?', help='输入 Mermaid 文件路径 (.mmd)')
+    parser = argparse.ArgumentParser(description='产业链图谱解析器 - 支持Mermaid和Markdown格式')
+    parser.add_argument('input', nargs='?', help='输入文件路径 (.mmd 或 .md)')
     parser.add_argument('output', nargs='?', help='输出 HTML 文件路径')
     parser.add_argument('--demo', action='store_true', help='使用示例数据演示')
+    parser.add_argument('--demo-md', action='store_true', help='使用Markdown示例数据演示')
+    parser.add_argument('--theme', choices=list(THEMES.keys()), default='instagram',
+                        help=f'主题风格: {", ".join(THEMES.keys())} (默认: instagram)')
+    parser.add_argument('--list-themes', action='store_true', help='列出所有可用主题')
     
     args = parser.parse_args()
     
+    # 列出所有主题
+    if args.list_themes:
+        print('可用主题:')
+        for theme_id, theme_config in THEMES.items():
+            print(f'  {theme_id}: {theme_config["name"]}')
+        return
+    
     if args.demo:
-        # 示例 Mermaid 数据
+        # Mermaid 示例
         demo_mermaid = '''
 %% title: 储能产业链
 %% watermark: 题材调研员
@@ -1087,11 +1451,63 @@ subgraph SG3["下游：应用场景"]
 end
 '''
         flowchart = parse_mermaid(demo_mermaid)
-        html = generate_html(flowchart)
+        html = generate_html(flowchart, theme=args.theme)
         
-        output_path = '/tmp/demo-flowchart.html'
-        Path(output_path).write_text(html)
-        print(f'Demo HTML generated: {output_path}')
+        output_path = Path('/tmp/demo-flowchart.html')
+        output_path.write_text(html)
+        print(f'Mermaid Demo HTML generated: {output_path}')
+        return
+    
+    if args.demo_md:
+        # Markdown 示例
+        demo_md = '''
+# 液冷产业链
+
+## 🏭 上游材料层
+
+### 冷却液 | 氟化液/硅基液
+
+### 金属材料
+铜/铝/金刚石铜
+
+### 电子元器件 | 泵/阀/传感器
+
+→ 核心部件层
+
+## ❄️ 核心部件层
+
+### 液冷板 | 微通道结构
+
+### CDU | 分配单元
+
+### 快接头 | UQD连接器
+
+→ 系统集成层
+
+## 🖥️ 系统集成层
+
+### 液冷服务器 | 整机柜方案
+
+### 温控系统 | 冷量分配
+
+→ 下游应用层
+
+## 🤖 下游应用层
+
+- AI智算中心 | 大模型训练
+- 科学研究 | 超算中心
+- 云计算互联网 | 数据中心
+'''
+        flowchart = parse_markdown(demo_md)
+        html = generate_html(flowchart, theme=args.theme)
+        
+        output_path = Path('/tmp/demo-markdown.html')
+        output_path.write_text(html)
+        print(f'Markdown Demo HTML generated: {output_path}')
+        print(f'  Theme: {THEMES[args.theme]["name"]}')
+        print(f'  Title: {flowchart.title}')
+        print(f'  Subgraphs: {len(flowchart.subgraphs)}')
+        print(f'  Nodes: {len(flowchart.all_nodes)}')
         return
     
     if not args.input:
@@ -1104,13 +1520,18 @@ end
         print(f'Error: Input file not found: {input_path}')
         sys.exit(1)
     
-    mermaid_text = input_path.read_text()
+    input_text = input_path.read_text()
     
-    # 解析
-    flowchart = parse_mermaid(mermaid_text)
+    # 根据文件扩展名选择解析器
+    if input_path.suffix.lower() == '.md':
+        flowchart = parse_markdown(input_text)
+        print('Using Markdown parser')
+    else:
+        flowchart = parse_mermaid(input_text)
+        print('Using Mermaid parser')
     
-    # 生成 HTML
-    html = generate_html(flowchart)
+    # 生成 HTML (使用指定主题)
+    html = generate_html(flowchart, theme=args.theme)
     
     # 输出
     if args.output:
@@ -1120,6 +1541,7 @@ end
     
     output_path.write_text(html)
     print(f'HTML generated: {output_path}')
+    print(f'  Theme: {THEMES[args.theme]["name"]}')
     print(f'  Title: {flowchart.title}')
     print(f'  Watermark: {flowchart.watermark}')
     print(f'  Subgraphs: {len(flowchart.subgraphs)}')
