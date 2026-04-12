@@ -135,6 +135,7 @@ class Flowchart:
     """完整流程图数据"""
     title: str = "产业链图谱"
     watermark: str = "题材调研员"
+    direction: str = "TD"  # LR=Left-Right, TD=Top-Down
     subgraphs: List[Subgraph] = field(default_factory=list)
     all_nodes: Dict[str, Node] = field(default_factory=dict)
     all_connections: List[Tuple[str, str]] = field(default_factory=list)
@@ -261,8 +262,12 @@ def parse_mermaid(text: str) -> Flowchart:
         if line_stripped.startswith('%%') or not line_stripped:
             continue
         
-        # 跳过 flowchart 定义行
+        # 解析 flowchart 定义行，提取方向（LR/TD）
         if line_stripped.startswith('flowchart') or line_stripped.startswith('graph'):
+            # 提取方向：flowchart LR, flowchart TD, flowchart LR-down, etc.
+            dir_match = re.search(r'(?:flowchart|graph)\s+(LR|TD|RL|BT|TB|LR-down|TD-left)', line_stripped, re.IGNORECASE)
+            if dir_match:
+                flowchart.direction = dir_match.group(1).upper()
             continue
         
         # 跳过 style 定义行
@@ -495,7 +500,13 @@ def icon_to_html(icon: str) -> str:
     - fab:icon-name → <i class="fab fa-icon-name"></i>
     - far:icon-name → <i class="far fa-icon-name"></i>
     - emoji → 直接返回 emoji 字符
+    
+    注意: 当前已禁用所有 icon 显示，始终返回空字符串
     """
+    # 禁用所有 icon 显示
+    return ""
+    
+    # 以下代码保留但不会执行（方便以后恢复）
     if not icon:
         return ""
     
@@ -519,6 +530,80 @@ def icon_to_html(icon: str) -> str:
     
     # 如果是 emoji，直接返回
     return icon
+
+
+def generate_sketchy_arrow(direction='down', label='', is_sketchy=False):
+    """
+    生成手绘风格箭头 SVG
+    
+    direction: 'down' (向下), 'right' (向右), 'wavy' (波浪)
+    label: 箭头旁边的简短关系词
+    is_sketchy: 是否使用手绘风格
+    """
+    if not is_sketchy:
+        # 非手绘风格：简单字符箭头
+        if direction == 'down':
+            return '<div class="text-center text-gray-400 text-xl">↓</div>'
+        elif direction == 'right':
+            return '<div class="text-gray-400 text-xl self-center">→</div>'
+        else:
+            return '<div class="text-center text-gray-400 text-xl">↓</div>'
+    
+    # 手绘风格：SVG 波浪箭头
+    if direction == 'down':
+        svg = '''<svg class="sketchy-arrow-svg" width="40" height="30" viewBox="0 0 40 30" style="display:block;margin:8px auto;">
+          <path d="M20 5 Q15 10 20 15 Q25 20 20 25" stroke="#2C3E50" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <path d="M15 22 L20 28 L25 22" stroke="#2C3E50" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>'''
+        if label:
+            return f'<div class="text-center"><span class="sketchy-arrow-label text-xs" style="color:#6B6B6B;margin-bottom:4px;">{label}</span>{svg}</div>'
+        return svg
+    elif direction == 'right':
+        return '''<svg class="sketchy-arrow-svg" width="40" height="24" viewBox="0 0 40 24" style="display:inline-block;margin:0 8px;vertical-align:middle;">
+          <path d="M5 12 Q10 8 15 12 Q20 16 25 12 Q30 8 35 12" stroke="#2C3E50" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <path d="M32 8 L38 12 L32 16" stroke="#2C3E50" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>'''
+    else:
+        return '''<svg class="sketchy-arrow-svg" width="40" height="30" viewBox="0 0 40 30" style="display:block;margin:8px auto;">
+          <path d="M20 5 Q15 10 20 15 Q25 20 20 25" stroke="#2C3E50" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <path d="M15 22 L20 28 L25 22" stroke="#2C3E50" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>'''
+
+
+def get_semantic_color(text: str, theme_config: dict) -> str:
+    """
+    根据文本内容语义返回对应的节点颜色类名
+    
+    参数:
+        text: 节点标题/描述文本
+        theme_config: 主题配置字典
+    
+    返回:
+        节点颜色类名（如 'node-blue', 'node-mint' 等）或 None（使用默认轮换）
+    """
+    semantic_keywords = theme_config.get('semantic_keywords', {})
+    if not semantic_keywords:
+        return None
+    
+    text_lower = text.lower()
+    
+    # 技术类 -> 蓝色
+    if any(kw in text for kw in semantic_keywords.get('tech', [])):
+        return 'node-blue'
+    
+    # 增长类 -> 薄荷绿
+    if any(kw in text for kw in semantic_keywords.get('growth', [])):
+        return 'node-mint'
+    
+    # 概念类 -> 薰衣草紫
+    if any(kw in text for kw in semantic_keywords.get('concept', [])):
+        return 'node-lavender'
+    
+    # 警告类 -> 珊瑚红
+    if any(kw in text for kw in semantic_keywords.get('warning', [])):
+        return 'node-peach'
+    
+    return None
 
 
 # 主题配置字典（多主题切换 v1.9）
@@ -655,10 +740,56 @@ THEMES = {
         'icon_color': '#404040',
         'arrow_color': 'text-gray-500',
     },
+    # 手绘风教育插画风格 - 基于 sketch-notes + macaron 规范
+    'hand-drawn-edu': {
+        'name': '手绘风教育插画',
+        # 暖奶油背景 + 微妙纸张纹理（SVG pattern）
+        'background': '#F5F0E8',
+        'background_texture': True,  # 启用纸张纹理
+        'watermark_color': 'rgba(45,45,45,0.06)',
+        # 卡片：纯白 + 手绘边框（无模糊）
+        'card_base': '#FFFFFF',
+        'card_1': '#FFFFFF',
+        'card_2': '#FFFFFF',
+        'card_3': '#FFFFFF',
+        'card_4': '#FFFFFF',
+        'card_border': '2px solid #2C3E50',  # 手绘边框
+        'card_border_radius': '12px',
+        # 节点：马卡龙色系（语义编码）
+        'node_card': '#FFFFFF',
+        'node_border': '2px solid #2C3E50',
+        # 语义颜色：技术蓝、增长绿、概念紫、温暖桃
+        'node_blue': '#A8D8EA',      # 技术/信息类
+        'node_mint': '#B5E5CF',      # 增长/正向类
+        'node_lavender': '#D5C6E0',  # 概念/抽象类
+        'node_peach': '#FFD5C2',     # 温暖类
+        'node_1': '#A8D8EA',         # 默认轮换
+        'node_2': '#B5E5CF',
+        'node_3': '#D5C6E0',
+        'node_4': '#FFD5C2',
+        'node_5': '#A8D8EA',
+        'node_6': '#B5E5CF',
+        # 文字颜色
+        'title_color': '#2D2D2D',    # 深炭灰
+        'desc_color': '#6B6B6B',     # 暖灰（辅助标注）
+        'icon_color': '#E8655A',     # 珊瑚红（强调色）
+        'arrow_color': '#2C3E50',    # 手绘箭头颜色
+        # 手绘特效
+        'sketchy_filter': True,      # 启用手绘抖动
+        'hand_drawn_border': True,   # 启用不规则边框
+        'is_sketchy': True,          # 启用手绘风格箭头
+        # 颜色语义编码关键词映射
+        'semantic_keywords': {
+            'tech': ['技术', '芯片', '算法', '系统', '软件', 'AI', '智能', '数据', '云计算'],
+            'growth': ['增长', '收入', '利润', '上升', '扩张', '投资', '融资', '市场'],
+            'concept': ['概念', '模式', '框架', '逻辑', '理念', '思维', '方法'],
+            'warning': ['风险', '挑战', '竞争', '压力', '下滑', '亏损'],
+        },
+    },
 }
 
 
-def generate_html(flowchart: Flowchart, theme: str = 'instagram') -> str:
+def generate_html(flowchart: Flowchart, theme: str = 'hand-drawn-edu') -> str:
     """
     生成指定主题风格的 HTML
     theme: instagram, xiaohongshu, business, darktech, warm, minimal
@@ -675,6 +806,42 @@ def generate_html(flowchart: Flowchart, theme: str = 'instagram') -> str:
     
     html_parts = []
     
+    # 检测是否是手绘风格主题
+    is_sketchy = theme == 'hand-drawn-edu'
+    
+    # 手绘风格特殊样式
+    sketchy_css = ''
+    if is_sketchy:
+        sketchy_css = '''
+    /* 手绘抖动 SVG filter */
+    .sketchy-filter { filter: url(#sketchy); }
+    /* 手绘边框 - 使用 SVG stroke-dasharray 模拟不规则 */
+    .hand-drawn-border {
+      border: 2px solid #2C3E50;
+      border-radius: 8px 12px 10px 14px;
+      box-shadow: 2px 3px 0 rgba(44,62,80,0.15);
+    }
+    /* 马卡龙色块不完全填满 - 留白边 */
+    .macaron-fill {
+      background-size: 95% 95%;
+      background-position: center;
+    }
+    /* 手绘箭头 */
+    .sketchy-arrow {
+      stroke: #2C3E50;
+      stroke-width: 2;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    /* 涂鸦装饰 */
+    .doodle-star { color: #E8655A; opacity: 0.6; }
+    .doodle-underline {
+      border-bottom: 2px wavy #E8655A;
+      opacity: 0.5;
+    }
+'''
+    
     # HTML 头部 - 使用主题样式
     html_parts.append('''<!DOCTYPE html>
 <html lang="zh-CN">
@@ -688,9 +855,18 @@ def generate_html(flowchart: Flowchart, theme: str = 'instagram') -> str:
   <style>
     * { font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif; }
     body {
-      background: ''' + t['background'] + ''';
+      background: ''' + (t['background'] if t.get('background_texture', False) else t['background']) + ''';
       padding-bottom: 20px;
-    }
+}''' + ('''
+    /* 纸张纹理 */
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }''' if t.get('background_texture', False) else '') + '''
     /* SVG水印层 - 自动重复铺满 */
     .watermark-svg {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -702,10 +878,12 @@ def generate_html(flowchart: Flowchart, theme: str = 'instagram') -> str:
     }
     .card {
       background: ''' + t['card_base'] + ''';
-      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      ''' + ('''border: 2px solid #2C3E50;
+      border-radius: 12px 16px 14px 18px;
+      box-shadow: 3px 4px 0 rgba(44,62,80,0.2);''' if is_sketchy else '''backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
       border-radius: 16px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.12);
-      border: 1px solid ''' + t['node_border'] + ''';
+      border: 1px solid ''' + t['node_border']) + ''';
     }
     .card-1 { background: ''' + t['card_1'] + '''; }
     .card-2 { background: ''' + t['card_2'] + '''; }
@@ -713,11 +891,13 @@ def generate_html(flowchart: Flowchart, theme: str = 'instagram') -> str:
     .card-4 { background: ''' + t['card_4'] + '''; }
     .node-card {
       background: ''' + t['node_card'] + ''';
-      border-radius: 12px;
+      ''' + ('''border: 2px solid #2C3E50;
+      border-radius: 8px 12px 10px 14px;
+      box-shadow: 2px 3px 0 rgba(44,62,80,0.15);''' if is_sketchy else '''border-radius: 12px;
       box-shadow: 0 3px 12px rgba(0,0,0,0.08);
-      border: 1px solid ''' + t['node_border'] + ''';
+      border: 1px solid ''' + t['node_border']) + ''';
     }
-    .section-title { font-size: 24px; font-weight: 700; color: ''' + t['title_color'] + '''; margin-bottom: 14px; text-align: center; }
+    .section-title { font-size: 24px; font-weight: 700; color: ''' + t['title_color'] + '''; margin-bottom: 14px; text-align: center; ''' + ('''text-shadow: 1px 1px 0 rgba(44,62,80,0.1);''' if is_sketchy else '') + '''}
     .node-title { font-size: 19px; font-weight: 600; color: ''' + t['title_color'] + '''; line-height: 1.4; }
     .node-desc { font-size: 15px; font-weight: 400; color: ''' + t['desc_color'] + '''; line-height: 1.5; margin-top: 6px; }
     .node-icon { color: ''' + t['icon_color'] + '''; opacity: 0.85; margin-bottom: 8px; }
@@ -727,12 +907,27 @@ def generate_html(flowchart: Flowchart, theme: str = 'instagram') -> str:
     .node-4 { background: ''' + t['node_4'] + '''; }
     .node-5 { background: ''' + t['node_5'] + '''; }
     .node-6 { background: ''' + t['node_6'] + '''; }
+    /* 语义颜色类（手绘风格专用） */
+    .node-blue { background: ''' + t.get('node_blue', t['node_1']) + '''; }
+    .node-mint { background: ''' + t.get('node_mint', t['node_2']) + '''; }
+    .node-lavender { background: ''' + t.get('node_lavender', t['node_3']) + '''; }
+    .node-peach { background: ''' + t.get('node_peach', t['node_4']) + '''; }
     /* 主题箭头颜色 */
-    .arrow-color { color: ''' + t['icon_color'] + '''; opacity: 0.6; }
+    .arrow-color { color: ''' + t['arrow_color'] + '''; opacity: 0.7; }
+    ''' + sketchy_css + '''
   </style>
 </head>
 <body class="p-5">
   <div class="content-wrapper">
+    <!-- SVG defs for sketchy filter -->
+    ''' + ('''<svg style="position:absolute;width:0;height:0;" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="sketchy">
+          <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="3" result="noise"/>
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale="1" xChannelSelector="R" yChannelSelector="G"/>
+        </filter>
+      </defs>
+    </svg>''' if is_sketchy else '') + '''
     <svg class="watermark-svg" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <pattern id="watermark-pattern" patternUnits="userSpaceOnUse" width="450" height="300" patternTransform="rotate(-20)">
@@ -741,7 +936,7 @@ def generate_html(flowchart: Flowchart, theme: str = 'instagram') -> str:
       </defs>
       <rect width="100%" height="100%" fill="url(#watermark-pattern)"/>
     </svg>
-    <div class="relative z-10 mx-auto space-y-5" style="max-width: 800px;" id="content">
+    <div class="relative z-10 mx-auto ''' + ('flex gap-6 items-stretch' if flowchart.direction == 'LR' else 'space-y-5') + '''" style="max-width: 800px;" id="content">
 ''')
     
     # 生成每个 subgraph 的卡片
@@ -870,7 +1065,30 @@ def generate_html(flowchart: Flowchart, theme: str = 'instagram') -> str:
         
         nodes_html = ''
         
-        if has_parallel_branches:
+        # LR模式：节点纵向排列，简化布局
+        if flowchart.direction == 'LR':
+            nodes_html = '<div class="space-y-3 flex-1">'
+            for node_idx, node in enumerate(sg.nodes):
+                node_class = node_colors[node_idx % len(node_colors)]
+                title_br = node.title.replace('\n', '<br>')
+                desc_br = node.desc.replace('\n', '<br>') if node.desc else ''
+                desc_html = f'<div class="node-desc">{desc_br}</div>' if desc_br else ''
+                icon_html = icon_to_html(node.icon) if node.icon else ''
+                icon_div = f'<div class="node-icon text-xl mb-1">{icon_html}</div>' if icon_html else ''
+                
+                nodes_html += f'''
+                <div class="node-card {node_class} p-4 text-center">
+                  {icon_div}<div class="node-title">{title_br}</div>
+                  {desc_html}
+                </div>'''
+                
+                # 节点之间添加向下箭头
+                if node_idx < len(sg.nodes) - 1:
+                    nodes_html += generate_sketchy_arrow('down', '', is_sketchy)
+            
+            nodes_html += '</div>'
+        
+        elif has_parallel_branches:
             # 多分支并排卡片布局：每个分叉节点一个卡片，父节点顶部，子节点并列下方
             # 分支数>=4时用grid布局（2行2列），否则用flex横向排列
             if len(independent_branches) >= 4:
@@ -907,7 +1125,7 @@ def generate_html(flowchart: Flowchart, theme: str = 'instagram') -> str:
                 
                 # 箭头
                 if child_nodes:
-                    nodes_html += '<div class="text-center text-gray-400 text-lg">↓</div>'
+                    nodes_html += generate_sketchy_arrow('down', '', is_sketchy)
                     
                     # 子节点并列
                     nodes_html += '<div class="flex gap-2 justify-center">'
@@ -1018,7 +1236,7 @@ def generate_html(flowchart: Flowchart, theme: str = 'instagram') -> str:
                     rendered_nodes.add(fork.id)
                 
                 # 向下箭头
-                nodes_html += '<div class="text-center text-gray-400 text-xl">↓</div>'
+                nodes_html += generate_sketchy_arrow('down', '', is_sketchy)
                 
                 # 子节点并排小方块
                 children_ids = parent_to_children.get(fork.id, [])
@@ -1046,7 +1264,7 @@ def generate_html(flowchart: Flowchart, theme: str = 'instagram') -> str:
                         sub_children = [node_map.get(s_id) for s_id in sub_children_ids if node_map.get(s_id)]
                         # 关闭当前flex容器，添加箭头和新的子节点行
                         nodes_html += '</div>'
-                        nodes_html += '<div class="text-center text-gray-400 text-lg mt-2">↓</div>'
+                        nodes_html += generate_sketchy_arrow('down', '', is_sketchy)
                         nodes_html += '<div class="flex gap-3 justify-center flex-wrap mt-2">'
                         for sc_idx, sub_child in enumerate(sub_children):
                             if sub_child.id not in rendered_nodes:
@@ -1090,7 +1308,7 @@ def generate_html(flowchart: Flowchart, theme: str = 'instagram') -> str:
                           {desc_html}
                         </div>'''
                         if n_idx < len(chain) - 1:
-                            nodes_html += '<div class="text-gray-400 text-xl self-center">→</div>'
+                            nodes_html += generate_sketchy_arrow('right', '', is_sketchy)
                     nodes_html += '</div>'
             
             nodes_html += '</div>'
@@ -1145,7 +1363,7 @@ def generate_html(flowchart: Flowchart, theme: str = 'instagram') -> str:
                         </div>'''
                         
                         if node_idx < len(chain) - 1:
-                            nodes_html += '<div class="text-center text-gray-400 text-xl">↓</div>'
+                            nodes_html += generate_sketchy_arrow('down', '', is_sketchy)
                     
                     nodes_html += '</div>'
                 nodes_html += '</div>'
@@ -1160,8 +1378,10 @@ def generate_html(flowchart: Flowchart, theme: str = 'instagram') -> str:
                 # emoji 直接显示
                 sg_icon_html = f'<span class="mr-2">{sg.icon}</span>'
         
+        # LR模式：卡片flex-1等宽，内部纵向布局
+        card_extra_class = 'flex-1 flex flex-col' if flowchart.direction == 'LR' else ''
         html_parts.append(f'''
-    <div class="card {card_class} p-6">
+    <div class="card {card_class} p-6 {card_extra_class}">
       <div class="section-title">{sg_icon_html}{sg.title}</div>
       {nodes_html}
     </div>
@@ -1402,8 +1622,8 @@ def main():
     parser.add_argument('output', nargs='?', help='输出 HTML 文件路径')
     parser.add_argument('--demo', action='store_true', help='使用示例数据演示')
     parser.add_argument('--demo-md', action='store_true', help='使用Markdown示例数据演示')
-    parser.add_argument('--theme', choices=list(THEMES.keys()), default='instagram',
-                        help=f'主题风格: {", ".join(THEMES.keys())} (默认: instagram)')
+    parser.add_argument('--theme', choices=list(THEMES.keys()), default='hand-drawn-edu',
+                        help=f'主题风格: {", ".join(THEMES.keys())} (默认: hand-drawn-edu)')
     parser.add_argument('--list-themes', action='store_true', help='列出所有可用主题')
     
     args = parser.parse_args()
