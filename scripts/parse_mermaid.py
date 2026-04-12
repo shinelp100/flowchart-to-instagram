@@ -16,6 +16,72 @@ from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass, field
 
 
+# 关键词到emoji的智能映射表（产业链图谱专用）
+EMOJI_KEYWORDS = {
+    # 上游材料层
+    '冷却液': '🧪', '氟化液': '🧪', '硅基液': '🧪', '液体': '🧪',
+    '金属': '⚙️', '铜': '⚙️', '铝': '⚙️', '金刚石': '💎', '材料': '📦',
+    '电子元器件': '🔌', '泵': '🔧', '阀': '🔧', '传感器': '📡', '元器件': '🔌',
+    
+    # 核心部件层
+    '液冷板': '❄️', '冷板': '❄️', '微通道': '❄️',
+    'CDU': '🎛️', '分配单元': '🎛️', '分配系统': '🎛️',
+    '快接头': '🔗', '连接器': '🔗', 'UQD': '🔗',
+    'Manifold': '🔀', '歧管': '🔀', '管路': '🔀', '管道': '🔀',
+    
+    # 系统集成层
+    '服务器': '🖥️', '液冷服务器': '🖥️', '整机柜': '🗄️', '机柜': '🗄️',
+    '温控': '🌡️', '温控系统': '🌡️', '数据中心': '🏢',
+    
+    # 下游应用层
+    'AI': '🤖', '智算中心': '🤖', '大模型': '🧠', '训练': '🧠',
+    '超算': '⚡', '科学计算': '⚡',
+    '云计算': '☁️', '互联网': '🌐', '云服务': '☁️',
+    
+    # 通用产业
+    '上游': '⬆️', '下游': '⬇️', '核心': '🎯', '系统': '🔧',
+    '芯片': '💾', '存储': '💾', '内存': '💾', 'DRAM': '💾',
+    '原厂': '🏭', '厂商': '🏭', '工厂': '🏭',
+    '供应链': '🔗', '传导': '➡️', '终端': '📱',
+    '手机': '📱', 'PC': '💻', '电脑': '💻', '消费电子': '📱',
+    '需求': '📈', '供给': '📉', '涨价': '💰', '价格': '💰',
+    '产能': '📊', '产量': '📊', '市场': '📊',
+    
+    # 技术相关
+    '技术': '🔬', '研发': '🔬', '创新': '💡',
+    '专利': '📜', '标准': '📋',
+    
+    # 金融相关
+    '投资': '💵', '融资': '💵', '资金': '💵',
+    '成本': '📉', '利润': '📈', '营收': '📈',
+    
+    # 时间相关
+    '过去': '📅', '现在': '📅', '未来': '🔮',
+    '周期': '🔄', '阶段': '📊',
+    
+    # 人物/角色
+    '客户': '👥', '用户': '👥', '供应商': '🤝',
+}
+
+
+def auto_match_emoji(title: str) -> str:
+    """
+    根据标题关键词自动匹配emoji
+    返回匹配度最高的emoji，如果没有匹配则返回空字符串
+    """
+    # 直接匹配
+    for keyword, emoji in EMOJI_KEYWORDS.items():
+        if keyword in title:
+            return emoji
+    
+    # 部分匹配（标题包含关键词的一部分）
+    for keyword, emoji in EMOJI_KEYWORDS.items():
+        if any(k in title for k in keyword.split('/')):
+            return emoji
+    
+    return ''
+
+
 def remove_emoji(text: str) -> str:
     """
     移除文本中的 emoji 字符
@@ -56,6 +122,7 @@ class Subgraph:
     """Subgraph 数据结构"""
     id: str
     title: str
+    icon: str = ""  # Font Awesome icon，格式: fa:icon-name 或 emoji
     nodes: List[Node] = field(default_factory=list)
     connections: List[Tuple[str, str]] = field(default_factory=list)  # (from_id, to_id)
 
@@ -73,32 +140,60 @@ class Flowchart:
 def parse_node_content(content: str) -> Tuple[str, str, str]:
     """
     解析节点内容，提取图标、标题和描述
-    格式: "fa:icon 标题\\n描述" 或 "标题\\n描述" 或 "标题"
+    格式: "fa:icon 标题\\n描述" 或 "🏭 标题\\n描述" 或 "标题\\n描述" 或 "标题"
     返回: (icon, title, desc)
-    
+
     支持的 icon 格式:
     - fa:icon-name (Font Awesome 通用)
     - fas:icon-name (Font Awesome Solid)
     - fab:icon-name (Font Awesome Brands)
     - far:icon-name (Font Awesome Regular)
+    - emoji (开头的 emoji 字符)
     """
     # 处理转义换行符
     content = content.replace('\\n', '\n')
-    
+
     # 清理多余引号
     content = content.strip().strip('"').strip("'")
-    
-    # 去除emoji
-    content = remove_emoji(content)
-    
-    # 提取 icon (格式: fa:xxx 或 fas:xxx 等)
+
     icon = ""
-    icon_pattern = r'^\s*(fa[sbr]?:[a-z0-9-]+)\s+'
-    icon_match = re.match(icon_pattern, content)
-    if icon_match:
-        icon = icon_match.group(1)
-        content = content[icon_match.end():].strip()
-    
+
+    # 1. 先提取 Font Awesome icon (格式: fa:xxx 或 fas:xxx 等)
+    fa_pattern = r'^\s*(fa[sbr]?:[a-z0-9-]+)\s+'
+    fa_match = re.match(fa_pattern, content)
+    if fa_match:
+        icon = fa_match.group(1)
+        content = content[fa_match.end():].strip()
+
+    # 2. 提取开头的 emoji 作为 icon（如果没有 Font Awesome icon）
+    if not icon:
+        # 更完整的 emoji unicode 范围，包含 variation selectors
+        emoji_pattern = re.compile(
+            "["
+            "\\U0001F600-\\U0001F64F"  # emoticons
+            "\\U0001F300-\\U0001F5FF"  # symbols & pictographs
+            "\\U0001F680-\\U0001F6FF"  # transport & map symbols
+            "\\U0001F700-\\U0001F77F"  # alchemical symbols
+            "\\U0001F780-\\U0001F7FF"  # Geometric Shapes Extended
+            "\\U0001F800-\\U0001F8FF"  # Supplemental Arrows-C
+            "\\U0001F900-\\U0001F9FF"  # Supplemental Symbols and Pictographs
+            "\\U0001FA00-\\U0001FA6F"  # Chess Symbols
+            "\\U0001FA70-\\U0001FAFF"  # Symbols and Pictographs Extended-A
+            "\\U00002600-\\U000027BF"  # Miscellaneous Symbols + Dingbats (包括 ⚙ U+2699)
+            "\\U00002B50-\\U00002B55"  # Stars (⭐)
+            "\\U0000FE00-\\U0000FE0F"  # Variation Selectors (用于文本符号变emoji)
+            "\\U0001F1E0-\\U0001F1FF"  # Flags (区域性符号)
+            "]+",
+            flags=re.UNICODE
+        )
+        emoji_match = emoji_pattern.match(content)
+        if emoji_match:
+            icon = emoji_match.group(0)  # 保留 emoji 作为 icon
+            content = content[emoji_match.end():].strip()
+
+    # 3. 剩余内容移除其他 emoji（只保留标题文本）
+    content = remove_emoji(content)
+
     # 提取标题和描述
     if '\n' in content:
         parts = content.split('\n')
@@ -107,7 +202,11 @@ def parse_node_content(content: str) -> Tuple[str, str, str]:
     else:
         title = content.strip()
         desc = ""
-    
+
+    # 4. 如果没有icon，自动根据标题关键词匹配emoji
+    if not icon:
+        icon = auto_match_emoji(title)
+
     return icon, title, desc
 
 
@@ -167,9 +266,9 @@ def parse_mermaid(text: str) -> Flowchart:
         if sg_match:
             sg_id = sg_match.group(1)
             sg_title_raw = sg_match.group(2)
-            # 清理标题中的emoji（可选保留）
-            sg_title = parse_node_content(sg_title_raw)[1]  # [1] 是 title
-            current_subgraph = Subgraph(id=sg_id, title=sg_title)
+            # 解析 subgraph 标题，保留 icon（emoji 或 fa:xxx）
+            sg_icon, sg_title, _ = parse_node_content(sg_title_raw)
+            current_subgraph = Subgraph(id=sg_id, title=sg_title, icon=sg_icon)
             flowchart.subgraphs.append(current_subgraph)
             continue
         
@@ -393,36 +492,38 @@ def analyze_chains_in_subgraph(nodes: List[Node], connections: List[Tuple[str, s
 
 def icon_to_html(icon: str) -> str:
     """
-    将 icon 字符串转换为 Font Awesome HTML
+    将 icon 字符串转换为 HTML
     
     支持的格式:
     - fa:icon-name → <i class="fas fa-icon-name"></i>
     - fas:icon-name → <i class="fas fa-icon-name"></i>
     - fab:icon-name → <i class="fab fa-icon-name"></i>
     - far:icon-name → <i class="far fa-icon-name"></i>
+    - emoji → 直接返回 emoji 字符
     """
     if not icon:
         return ""
     
-    # 解析 icon 字符串
-    # 格式: fa:icon-name 或 fas:icon-name 等
-    parts = icon.split(':')
-    if len(parts) != 2:
-        return ""
+    # 如果是 Font Awesome icon
+    if ':' in icon:
+        parts = icon.split(':')
+        if len(parts) != 2:
+            return ""
+        
+        prefix = parts[0]
+        icon_name = parts[1]
+        
+        if prefix == 'fa':
+            class_name = f"fas fa-{icon_name}"
+        elif prefix in ['fas', 'fab', 'far', 'fal', 'fad']:
+            class_name = f"{prefix} fa-{icon_name}"
+        else:
+            return ""
+        
+        return f'<i class="{class_name}"></i>'
     
-    prefix = parts[0]
-    icon_name = parts[1]
-    
-    # 处理不同的前缀
-    if prefix == 'fa':
-        # 通用 fa 前缀，使用 fas (solid) 作为默认
-        class_name = f"fas fa-{icon_name}"
-    elif prefix in ['fas', 'fab', 'far', 'fal', 'fad']:
-        class_name = f"{prefix} fa-{icon_name}"
-    else:
-        return ""
-    
-    return f'<i class="{class_name}"></i>'
+    # 如果是 emoji，直接返回
+    return icon
 
 
 def generate_html(flowchart: Flowchart) -> str:
@@ -470,25 +571,26 @@ def generate_html(flowchart: Flowchart) -> str:
       user-select: none;
     }
     .card {
-      background: linear-gradient(135deg, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0.92) 50%, rgba(255,255,255,0.88) 100%);
+      background: linear-gradient(135deg, rgba(255,250,245,0.85) 0%, rgba(255,252,248,0.88) 50%, rgba(250,245,255,0.85) 100%);
       backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
       border-radius: 16px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-      border: 1px solid rgba(255,255,255,0.3);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+      border: 1px solid rgba(255,255,255,0.4);
     }
-    .card-1 { background: linear-gradient(135deg, rgba(255,240,250,0.9) 0%, rgba(255,245,255,0.92) 50%, rgba(255,250,245,0.9) 100%); }
-    .card-2 { background: linear-gradient(135deg, rgba(255,235,245,0.9) 0%, rgba(255,240,250,0.92) 50%, rgba(255,245,240,0.9) 100%); }
-    .card-3 { background: linear-gradient(135deg, rgba(255,230,240,0.9) 0%, rgba(255,235,245,0.92) 50%, rgba(255,240,235,0.9) 100%); }
-    .card-4 { background: linear-gradient(135deg, rgba(255,235,235,0.9) 0%, rgba(255,230,240,0.92) 50%, rgba(255,240,230,0.9) 100%); }
+    .card-1 { background: linear-gradient(135deg, rgba(250,245,255,0.82) 0%, rgba(255,250,245,0.85) 50%, rgba(255,245,250,0.82) 100%); }
+    .card-2 { background: linear-gradient(135deg, rgba(255,245,250,0.82) 0%, rgba(250,255,245,0.85) 50%, rgba(245,250,255,0.82) 100%); }
+    .card-3 { background: linear-gradient(135deg, rgba(245,250,255,0.82) 0%, rgba(250,245,255,0.85) 50%, rgba(255,250,245,0.82) 100%); }
+    .card-4 { background: linear-gradient(135deg, rgba(255,250,245,0.82) 0%, rgba(245,255,250,0.85) 50%, rgba(250,245,255,0.82) 100%); }
     .node-card {
-      background: rgba(255,255,255,0.95);
+      background: rgba(255,255,255,0.88);
       border-radius: 12px;
-      box-shadow: 0 3px 12px rgba(0,0,0,0.05);
-      border: 1px solid rgba(255,255,255,0.5);
+      box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+      border: 1px solid rgba(255,255,255,0.6);
     }
     .section-title { font-size: 24px; font-weight: 700; color: #1a1a1a; margin-bottom: 14px; text-align: center; }
     .node-title { font-size: 19px; font-weight: 600; color: #1a1a1a; line-height: 1.4; }
     .node-desc { font-size: 15px; font-weight: 400; color: #3a3a3a; line-height: 1.5; margin-top: 6px; }
+    .node-icon { color: #833ab4; opacity: 0.85; margin-bottom: 8px; }
     .node-1 { background: linear-gradient(135deg, #fef7f7 0%, #fce8e8 100%); }
     .node-2 { background: linear-gradient(135deg, #fef9f3 0%, #fde9d9 100%); }
     .node-3 { background: linear-gradient(135deg, #fef8f0 0%, #fde5cc 100%); }
@@ -523,32 +625,55 @@ def generate_html(flowchart: Flowchart) -> str:
         
         # 根据 use_hierarchy 决定布局
         if use_hierarchy:
-            # 层级布局：父节点在上，子节点在下
-            nodes_html = '<div class="flex gap-6 items-start">'
+            # 层级布局：父节点在上（横向），子节点在下（横向并列）
+            # 第一行：所有父节点横向排列
+            nodes_html = '<div class="space-y-4">'
+            
+            # 第一行：父节点横向排列
+            nodes_html += '<div class="flex gap-4 justify-center">'
             for col_idx, column in enumerate(columns):
-                # 每列是一个父节点+子节点的分组
-                nodes_html += '<div class="flex-1 space-y-3">'
-                for node_idx, node in enumerate(column):
-                    node_class = node_colors[(col_idx + node_idx) % len(node_colors)]
-                    title_br = node.title.replace('\n', '<br>')
-                    desc_br = node.desc.replace('\n', '<br>') if node.desc else ''
+                parent = column[0]  # 第一个节点是父节点
+                node_class = node_colors[col_idx % len(node_colors)]
+                title_br = parent.title.replace('\n', '<br>')
+                desc_br = parent.desc.replace('\n', '<br>') if parent.desc else ''
+                desc_html = f'<div class="node-desc">{desc_br}</div>' if desc_br else ''
+                icon_html = icon_to_html(parent.icon) if parent.icon else ''
+                icon_div = f'<div class="node-icon text-xl mb-1">{icon_html}</div>' if icon_html else ''
+                
+                nodes_html += f'''
+                <div class="node-card {node_class} p-4 text-center flex-1">
+                  {icon_div}<div class="node-title">{title_br}</div>
+                  {desc_html}
+                </div>'''
+            nodes_html += '</div>'
+            
+            # 向下箭头行
+            nodes_html += '<div class="flex gap-4 justify-center">'
+            for col_idx, column in enumerate(columns):
+                nodes_html += '<div class="flex-1 text-center"><span class="text-gray-400 text-xl">↓</span></div>'
+            nodes_html += '</div>'
+            
+            # 第二行：每个父节点的子节点横向并列（在各自的分组内）
+            nodes_html += '<div class="flex gap-4">'
+            for col_idx, column in enumerate(columns):
+                children = column[1:]  # 后面的节点是子节点
+                nodes_html += '<div class="flex-1 flex gap-2 justify-center">'
+                for child_idx, child in enumerate(children):
+                    node_class = node_colors[(col_idx + child_idx) % len(node_colors)]
+                    title_br = child.title.replace('\n', '<br>')
+                    desc_br = child.desc.replace('\n', '<br>') if child.desc else ''
                     desc_html = f'<div class="node-desc">{desc_br}</div>' if desc_br else ''
-                    # icon 渲染
-                    icon_html = icon_to_html(node.icon) if node.icon else ''
+                    icon_html = icon_to_html(child.icon) if child.icon else ''
                     icon_div = f'<div class="node-icon text-xl mb-1">{icon_html}</div>' if icon_html else ''
                     
-                    # 节点卡片
                     nodes_html += f'''
-                    <div class="node-card {node_class} p-4 text-center">
-                      {icon_div}<div class="node-title">{title_br}</div>
+                    <div class="node-card {node_class} p-3 text-center">
+                      {icon_div}<div class="node-title text-base">{title_br}</div>
                       {desc_html}
                     </div>'''
-                    
-                    # 如果不是列最后一个节点，添加向下箭头
-                    if node_idx < len(column) - 1:
-                        nodes_html += '<div class="text-center text-gray-400 text-xl">↓</div>'
-                
                 nodes_html += '</div>'
+            nodes_html += '</div>'
+            
             nodes_html += '</div>'
         
         elif len(chains) == 1 and len(chains[0]) <= 3:
@@ -600,9 +725,18 @@ def generate_html(flowchart: Flowchart) -> str:
             nodes_html += '</div>'
         
         # 生成卡片
+        # 渲染 subgraph icon（emoji 或 Font Awesome）
+        sg_icon_html = ""
+        if sg.icon:
+            if sg.icon.startswith('fa'):
+                sg_icon_html = f'<span class="mr-2">{icon_to_html(sg.icon)}</span>'
+            else:
+                # emoji 直接显示
+                sg_icon_html = f'<span class="mr-2">{sg.icon}</span>'
+        
         html_parts.append(f'''
     <div class="card {card_class} p-6">
-      <div class="section-title">{sg.title}</div>
+      <div class="section-title">{sg_icon_html}{sg.title}</div>
       {nodes_html}
     </div>
 ''')
