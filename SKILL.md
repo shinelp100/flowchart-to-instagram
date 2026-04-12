@@ -99,6 +99,37 @@ node scripts/screenshot.mjs output.html output.png
 python scripts/parse_mermaid.py --demo
 ```
 
+### 方法二：Markdown Mermaid 批量转换（v2.0 新增）
+
+从 Markdown 文件中提取所有 Mermaid 代码块，批量转换为图片：
+
+```bash
+cd ~/projects/flowchart-to-instagram
+
+# 基本用法：转换所有 mermaid 代码块为图片
+python scripts/md2images.py report.md
+
+# 指定输出目录
+python scripts/md2images.py report.md -o ./images/
+
+# 指定文件名前缀
+python scripts/md2images.py report.md --prefix fig_
+
+# 更新 Markdown，替换代码块为图片链接
+python scripts/md2images.py report.md --update
+
+# 指定主题
+python scripts/md2images.py report.md --theme instagram
+
+# 查看所有主题
+python scripts/md2images.py --list-themes
+```
+
+**输出说明**：
+- 默认输出到 `output/` 目录
+- 文件命名：`{prefix}{index}.png`（如 `chart_1.png`, `chart_2.png`）
+- `--update` 模式会将 Markdown 中的代码块替换为 `![图1](output/chart_1.png)` 格式
+
 **支持的 Mermaid 格式**：
 ```mermaid
 %% title: 产业链图谱标题
@@ -137,7 +168,7 @@ end
   - Emoji：`A["🧪 氟化液"]` → 图标渲染在标题上方
   - Font Awesome：`A["fa:flask 氟化液"]` → 使用FA图标库
 
-### 方法二：修改模板文件
+### 方法三：修改模板文件
 
 1. 编辑 `templates/instagram-card.html`
 2. 修改内容区块（标题、节点）
@@ -148,17 +179,27 @@ end
 ```
 ~/projects/flowchart-to-instagram/
 ├── README.md                   # 项目文档
+├── SKILL.md                    # 技能文档
 ├── scripts/
-│   ├── parse_mermaid.py        # Mermaid 解析脚本（v1.2）
+│   ├── parse_mermaid.py        # Mermaid 解析脚本
+│   ├── md2images.py            # Markdown 批量转换脚本（v2.0 新增）
 │   └── screenshot.mjs          # HTML → PNG 截图脚本（Playwright）
 ├── templates/
-│   └── instagram-card.html     # HTML 模板（v1.0 最终版）
+│   └── instagram-card.html     # HTML 模板
 ├── data/
-│   └── 储能产业链.mmd           # 示例 Mermaid 文件
+│   ├── 储能产业链.mmd           # 示例 Mermaid 文件
+│   └── test_mermaid.md         # 示例 Markdown 文件
 └── output/                     # 输出目录
 ```
 
 ## 迭代记录
+
+### v2.0 (2026-04-12)
+- **新增 md2images.py**：Markdown Mermaid 批量转换
+  - 从 markdown 文件提取所有 mermaid 代码块
+  - 批量转换为 PNG 图片
+  - 支持 `--update` 参数自动替换代码块为图片链接
+- **禁用 icon 显示**：icon_to_html() 直接返回空字符串
 
 ### v1.9 (2026-04-12)
 - **截图尺寸修复**：Playwright在高DPI显示器上生成1839px宽度问题
