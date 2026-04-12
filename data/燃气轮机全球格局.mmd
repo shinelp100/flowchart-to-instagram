@@ -1,0 +1,66 @@
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#FFE5D9',
+    'primaryTextColor': '#5D4E37',
+    'primaryBorderColor': '#E8C4B8',
+    'lineColor': '#B8A99A',
+    'secondaryColor': '#D4E7D4',
+    'secondaryTextColor': '#4A6741',
+    'secondaryBorderColor': '#A8C8A8',
+    'tertiaryColor': '#E8DFF5',
+    'tertiaryTextColor': '#5D4E6D',
+    'tertiaryBorderColor': '#C8B8D8',
+    'background': '#FFFBF5',
+    'mainBkg': '#FFF5EE',
+    'nodeBorder': '#E8D5C4',
+    'clusterBkg': '#F5F0EB',
+    'clusterBorder': '#D4C4B8',
+    'titleColor': '#6B5B4F',
+    'edgeLabelBackground': '#FFF9F0',
+    'fontFamily': 'PingFang SC, Microsoft YaHei, sans-serif',
+    'fontSize': '15px'
+  },
+  'flowchart': {
+    'curve': 'basis',
+    'padding': 20,
+    'nodeSpacing': 50,
+    'rankSpacing': 80,
+    'diagramPadding': 30
+  }
+}}%%
+flowchart LR
+    subgraph 全球格局["🌍 全球市场（三大巨头垄断）"]
+        A["GE Vernova\n约30%+份额"]
+        B["三菱动力\n约25%+份额"]
+        C["西门子能源\n约20%+份额"]
+    end
+    
+    subgraph 产能瓶颈["⚠️ 产能瓶颈"]
+        D["交付周期\n排至2030年"]
+        E["积压订单\n超3000亿美元"]
+        F["涨价\n整机+15-20%"]
+    end
+    
+    subgraph 中国机会["🇨🇳 国产替代机会"]
+        G["整机出海\n东方电气等"]
+        H["零部件切入\n应流/图南等"]
+        I["技术升级\nF/H/J代际"]
+    end
+    
+    A --> D
+    B --> E
+    C --> F
+    D --> G
+    E --> H
+    F --> I
+    
+    style A fill:#FFE5D9,stroke:#E8C4B8,color:#5D4E37
+    style B fill:#FFE5D9,stroke:#E8C4B8,color:#5D4E37
+    style C fill:#FFE5D9,stroke:#E8C4B8,color:#5D4E37
+    style D fill:#FADBD8,stroke:#D8A8A8,color:#8B4A4A
+    style E fill:#FADBD8,stroke:#D8A8A8,color:#8B4A4A
+    style F fill:#FADBD8,stroke:#D8A8A8,color:#8B4A4A
+    style G fill:#D4E7D4,stroke:#A8C8A8,color:#4A6741
+    style H fill:#D4E7D4,stroke:#A8C8A8,color:#4A6741
+    style I fill:#D4E7D4,stroke:#A8C8A8,color:#4A6741

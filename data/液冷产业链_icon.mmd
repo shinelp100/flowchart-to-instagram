@@ -1,0 +1,68 @@
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#FFE5D9',
+    'primaryTextColor': '#5D4E37',
+    'primaryBorderColor': '#E8C4B8',
+    'lineColor': '#B8A99A',
+    'secondaryColor': '#D4E7D4',
+    'secondaryTextColor': '#4A6741',
+    'secondaryBorderColor': '#A8C8A8',
+    'tertiaryColor': '#E8DFF5',
+    'tertiaryTextColor': '#5D4E6D',
+    'tertiaryBorderColor': '#C8B8D8',
+    'background': '#FFFBF5',
+    'mainBkg': '#FFF5EE',
+    'nodeBorder': '#E8D5C4',
+    'clusterBkg': '#F5F0EB',
+    'clusterBorder': '#D4C4B8',
+    'titleColor': '#6B5B4F',
+    'edgeLabelBackground': '#FFF9F0',
+    'fontFamily': 'PingFang SC, Microsoft YaHei, sans-serif',
+    'fontSize': '15px'
+  },
+  'flowchart': {
+    'curve': 'basis',
+    'padding': 20,
+    'nodeSpacing': 50,
+    'rankSpacing': 80,
+    'diagramPadding': 30
+  }
+}}%%
+flowchart TD
+    subgraph 上游材料["上游材料层"]
+        M1["fa:flask 冷却液\n氟化液/硅基液"] --> M2["fa:tint 液体类型\n直接接触式"]
+        M3["fa:cubes 金属材料\n铜/铝/金刚石铜"] --> M4["fa:cube 合金方案\n热传导优化"]
+        M5["fa:microchip 电子元器件\n泵/阀/传感器"] --> M6["fa:cog 精密控制\n流量调节"]
+    end
+
+    subgraph 核心部件["核心部件层"]
+        C1["fa:box 液冷板\n微通道冷板"] --> C2["fa:server 服务器方案\n整机柜集成"]
+        C3["fa:network-wired CDU分配\n冷却分配系统"] --> C4["fa:temperature-low 温控\n智能调节"]
+        C5["fa:plug 快接头\nUQD连接器"] --> C6["fa:link 连接方案\n防漏设计"]
+        C7["fa:water Manifold歧管\n管路系统"] --> C8["fa:arrows-alt 流量分配\n均衡设计"]
+    end
+
+    subgraph 系统集成["系统集成层"]
+        S1["fa:server 液冷服务器\n整机柜方案"] --> S2["fa:database 数据中心\n规模化部署"]
+        S3["fa:thermometer-half 温控系统\n智能监控"] --> S4["fa:chart-line 运维方案\n预测性维护"]
+    end
+
+    subgraph 下游应用["下游应用层"]
+        D1["fa:brain AI智算中心\n大模型训练"] --> D2["fa:robot 应用场景\n深度学习"]
+        D3["fa:calculator 超算中心\n科学计算"] --> D4["fa:atom 研究领域\n物理模拟"]
+        D5["fa:cloud 云计算数据中心\n互联网服务"] --> D6["fa:users 服务对象\n企业客户"]
+    end
+
+    M2 --> C1
+    M4 --> C1
+    M6 --> C3
+
+    C2 --> S1
+    C4 --> S3
+    C6 --> S1
+    C8 --> S1
+
+    S2 --> D1
+    S4 --> D3
+    S2 --> D5

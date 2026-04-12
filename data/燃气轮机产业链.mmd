@@ -1,0 +1,85 @@
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#FFE5D9',
+    'primaryTextColor': '#5D4E37',
+    'primaryBorderColor': '#E8C4B8',
+    'lineColor': '#B8A99A',
+    'secondaryColor': '#D4E7D4',
+    'secondaryTextColor': '#4A6741',
+    'secondaryBorderColor': '#A8C8A8',
+    'tertiaryColor': '#E8DFF5',
+    'tertiaryTextColor': '#5D4E6D',
+    'tertiaryBorderColor': '#C8B8D8',
+    'background': '#FFFBF5',
+    'mainBkg': '#FFF5EE',
+    'nodeBorder': '#E8D5C4',
+    'clusterBkg': '#F5F0EB',
+    'clusterBorder': '#D4C4B8',
+    'titleColor': '#6B5B4F',
+    'edgeLabelBackground': '#FFF9F0',
+    'fontFamily': 'PingFang SC, Microsoft YaHei, sans-serif',
+    'fontSize': '15px'
+  },
+  'flowchart': {
+    'curve': 'basis',
+    'padding': 20,
+    'nodeSpacing': 50,
+    'rankSpacing': 80,
+    'diagramPadding': 30
+  }
+}}%%
+flowchart TD
+    subgraph 上游材料["🏭 上游材料"]
+        A["高温合金\n叶片钢"] 
+        B["精密铸造\n母材"]
+    end
+    
+    subgraph 热端部件["⚙️ 热端核心部件\n（壁垒最高）"]
+        C["涡轮叶片\n价值量占35%"]
+        D["燃烧室"]
+        E["涡轮盘"]
+    end
+    
+    subgraph 冷端部件["🔧 冷端零部件"]
+        F["气缸\n缸体"]
+        G["轴承\n环件"]
+        H["紧固件\n管件"]
+    end
+    
+    subgraph 整机["🏭 整机集成"]
+        I["重型整机\n东方电气/哈电/上海电气"]
+        J["轻型/航改燃\n航发动力/中国航发燃机"]
+    end
+    
+    subgraph 下游["🛒 下游应用"]
+        K["电力调峰\n数据中心"]
+        L["舰船动力\n油气管道"]
+        M["分布式能源\n热电联供"]
+    end
+    
+    A --> C
+    B --> C
+    C --> D
+    D --> E
+    E --> I
+    E --> J
+    F --> I
+    G --> I
+    G --> J
+    H --> I
+    I --> K
+    I --> L
+    J --> K
+    J --> M
+    J --> L
+    
+    style C fill:#FFE5D9,stroke:#E8C4B8,color:#5D4E37
+    style D fill:#FFE5D9,stroke:#E8C4B8,color:#5D4E37
+    style E fill:#FFE5D9,stroke:#E8C4B8,color:#5D4E37
+    style I fill:#E8DFF5,stroke:#C8B8D8,color:#5D4E6D
+    style J fill:#E8DFF5,stroke:#C8B8D8,color:#5D4E6D
+    style K fill:#D6EAF8,stroke:#A8C8D8,color:#4A678D
+    style L fill:#D6EAF8,stroke:#A8C8D8,color:#4A678D
+    style A fill:#FFF3CD,stroke:#E8D8A8,color:#6B5B4F
+    style B fill:#FFF3CD,stroke:#E8D8A8,color:#6B5B4F

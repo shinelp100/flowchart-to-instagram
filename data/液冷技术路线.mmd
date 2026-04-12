@@ -1,0 +1,74 @@
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#FFE5D9',
+    'primaryTextColor': '#5D4E37',
+    'primaryBorderColor': '#E8C4B8',
+    'lineColor': '#B8A99A',
+    'secondaryColor': '#D4E7D4',
+    'secondaryTextColor': '#4A6741',
+    'secondaryBorderColor': '#A8C8A8',
+    'tertiaryColor': '#E8DFF5',
+    'tertiaryTextColor': '#5D4E6D',
+    'tertiaryBorderColor': '#C8B8D8',
+    'background': '#FFFBF5',
+    'mainBkg': '#FFF5EE',
+    'nodeBorder': '#E8D5C4',
+    'clusterBkg': '#F5F0EB',
+    'clusterBorder': '#D4C4B8',
+    'titleColor': '#6B5B4F',
+    'edgeLabelBackground': '#FFF9F0',
+    'fontFamily': 'PingFang SC, Microsoft YaHei, sans-serif',
+    'fontSize': '15px'
+  },
+  'flowchart': {
+    'curve': 'basis',
+    'padding': 20,
+    'nodeSpacing': 50,
+    'rankSpacing': 80,
+    'diagramPadding': 30
+  }
+}}%%
+flowchart LR
+    subgraph 技术路线["🔧 液冷技术路线对比"]
+        direction TB
+        
+        subgraph 冷板式["🟦 冷板式液冷"]
+            A1["市场占比: 70-80%"] --> A2["PUE: 1.15-1.25"]
+            A2 --> A3["适配功率: 25-40kW机柜"]
+            A3 --> A4["改造成本: 低"]
+            A4 --> A5["维护难度: 易"]
+        end
+        
+        subgraph 浸没式["🟪 浸没式液冷"]
+            B1["市场占比: 10-20%"] --> B2["PUE: ≤1.1"]
+            B2 --> B3["适配功率: 50kW+超高功率"]
+            B3 --> B4["改造成本: 高"]
+            B4 --> B5["维护难度: 复杂"]
+        end
+        
+        subgraph 喷淋式["🟨 喷淋式液冷"]
+            C1["市场占比: <5%"] --> C2["PUE: 1.1-1.2"]
+            C2 --> C3["适配功率: 30-60kW"]
+            C3 --> C4["改造成本: 中"]
+            C4 --> C5["维护难度: 中"]
+        end
+    end
+    
+    style A1 fill:#D6EAF8,stroke:#A8C8D8,color:#4A678D
+    style A2 fill:#D6EAF8,stroke:#A8C8D8,color:#4A678D
+    style A3 fill:#D6EAF8,stroke:#A8C8D8,color:#4A678D
+    style A4 fill:#D6EAF8,stroke:#A8C8D8,color:#4A678D
+    style A5 fill:#D6EAF8,stroke:#A8C8D8,color:#4A678D
+    
+    style B1 fill:#E8DFF5,stroke:#C8B8D8,color:#5D4E6D
+    style B2 fill:#E8DFF5,stroke:#C8B8D8,color:#5D4E6D
+    style B3 fill:#E8DFF5,stroke:#C8B8D8,color:#5D4E6D
+    style B4 fill:#E8DFF5,stroke:#C8B8D8,color:#5D4E6D
+    style B5 fill:#E8DFF5,stroke:#C8B8D8,color:#5D4E6D
+    
+    style C1 fill:#FFF3CD,stroke:#E8D8A8,color:#6B5B4F
+    style C2 fill:#FFF3CD,stroke:#E8D8A8,color:#6B5B4F
+    style C3 fill:#FFF3CD,stroke:#E8D8A8,color:#6B5B4F
+    style C4 fill:#FFF3CD,stroke:#E8D8A8,color:#6B5B4F
+    style C5 fill:#FFF3CD,stroke:#E8D8A8,color:#6B5B4F

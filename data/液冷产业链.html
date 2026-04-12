@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>产业链图谱 - 题材调研员</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+    body {
+      background: linear-gradient(135deg, #833ab4 0%, #fd1d1d 50%, #fcb045 100%);
+      padding-bottom: 20px;
+    }
+    .watermark-bg {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      pointer-events: none; z-index: 0;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      grid-template-rows: repeat(2, 1fr);
+      align-items: center; justify-items: center;
+    }
+    .watermark-text {
+      font-size: 180px; font-weight: 700;
+      color: rgba(255, 255, 255, 0.06);
+      white-space: nowrap;
+      transform: rotate(-20deg);
+      user-select: none;
+    }
+    .card {
+      background: linear-gradient(135deg, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0.92) 50%, rgba(255,255,255,0.88) 100%);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+      border: 1px solid rgba(255,255,255,0.3);
+    }
+    .card-1 { background: linear-gradient(135deg, rgba(255,240,250,0.9) 0%, rgba(255,245,255,0.92) 50%, rgba(255,250,245,0.9) 100%); }
+    .card-2 { background: linear-gradient(135deg, rgba(255,235,245,0.9) 0%, rgba(255,240,250,0.92) 50%, rgba(255,245,240,0.9) 100%); }
+    .card-3 { background: linear-gradient(135deg, rgba(255,230,240,0.9) 0%, rgba(255,235,245,0.92) 50%, rgba(255,240,235,0.9) 100%); }
+    .card-4 { background: linear-gradient(135deg, rgba(255,235,235,0.9) 0%, rgba(255,230,240,0.92) 50%, rgba(255,240,230,0.9) 100%); }
+    .node-card {
+      background: rgba(255,255,255,0.95);
+      border-radius: 12px;
+      box-shadow: 0 3px 12px rgba(0,0,0,0.05);
+      border: 1px solid rgba(255,255,255,0.5);
+    }
+    .section-title { font-size: 24px; font-weight: 700; color: #1a1a1a; margin-bottom: 14px; text-align: center; }
+    .node-title { font-size: 19px; font-weight: 600; color: #1a1a1a; line-height: 1.4; }
+    .node-desc { font-size: 15px; font-weight: 400; color: #3a3a3a; line-height: 1.5; margin-top: 6px; }
+    .node-1 { background: linear-gradient(135deg, #fef7f7 0%, #fce8e8 100%); }
+    .node-2 { background: linear-gradient(135deg, #fef9f3 0%, #fde9d9 100%); }
+    .node-3 { background: linear-gradient(135deg, #fef8f0 0%, #fde5cc 100%); }
+    .node-4 { background: linear-gradient(135deg, #f4fef7 0%, #dcf8e3 100%); }
+    .node-5 { background: linear-gradient(135deg, #f3f7fe 0%, #dce5f8 100%); }
+    .node-6 { background: linear-gradient(135deg, #f8f5fe 0%, #e8dcf8 100%); }
+  </style>
+</head>
+<body class="p-5">
+  <div class="watermark-bg">
+    <div class="watermark-text">题材调研员</div>
+    <div class="watermark-text">题材调研员</div>
+    <div class="watermark-text">题材调研员</div>
+    <div class="watermark-text">题材调研员</div>
+  </div>
+  <div class="relative z-10 max-w-[800px] mx-auto space-y-5">
+
+
+    <div class="card card-1 p-6">
+      <div class="section-title">🏭 上游材料层</div>
+      <div class="space-y-4"><div class="flex gap-4">
+                <div class="node-card node-1 p-4 flex-1 text-center">
+                  <div class="node-title">冷却液</div>
+                  
+                </div>
+                <div class="node-card node-2 p-4 flex-1 text-center">
+                  <div class="node-title">氟化液/硅基液</div>
+                  
+                </div>
+                <div class="node-card node-3 p-4 flex-1 text-center">
+                  <div class="node-title">金属材料</div>
+                  
+                </div></div><div class="flex gap-4">
+                    <div class="node-card node-4 p-4 flex-1 text-center">
+                      <div class="node-title">铜/铝/金刚石铜</div>
+                      
+                    </div>
+                    <div class="node-card node-5 p-4 flex-1 text-center">
+                      <div class="node-title">电子元器件</div>
+                      
+                    </div>
+                    <div class="node-card node-6 p-4 flex-1 text-center">
+                      <div class="node-title">泵/阀/传感器</div>
+                      
+                    </div></div></div>
+    </div>
+
+
+    <div class="card card-2 p-6">
+      <div class="section-title">⚙️ 核心部件层</div>
+      <div class="space-y-4"><div class="flex gap-4">
+                    <div class="node-card node-1 p-4 flex-1 text-center">
+                      <div class="node-title">液冷板</div>
+                      
+                    </div>
+                    <div class="node-card node-2 p-4 flex-1 text-center">
+                      <div class="node-title">微通道冷板</div>
+                      
+                    </div>
+                    <div class="node-card node-3 p-4 flex-1 text-center">
+                      <div class="node-title">CDU分配单元</div>
+                      
+                    </div></div><div class="flex gap-4">
+                    <div class="node-card node-4 p-4 flex-1 text-center">
+                      <div class="node-title">冷却分配系统</div>
+                      
+                    </div>
+                    <div class="node-card node-5 p-4 flex-1 text-center">
+                      <div class="node-title">快接头</div>
+                      
+                    </div>
+                    <div class="node-card node-6 p-4 flex-1 text-center">
+                      <div class="node-title">UQD连接器</div>
+                      
+                    </div></div><div class="flex gap-4">
+                    <div class="node-card node-1 p-4 flex-1 text-center">
+                      <div class="node-title">Manifold歧管</div>
+                      
+                    </div>
+                    <div class="node-card node-2 p-4 flex-1 text-center">
+                      <div class="node-title">管路系统</div>
+                      
+                    </div></div></div>
+    </div>
+
+
+    <div class="card card-3 p-6">
+      <div class="section-title">🔧 系统集成层</div>
+      <div class="space-y-4"><div class="flex gap-4">
+                <div class="node-card node-1 p-4 flex-1 text-center">
+                  <div class="node-title">液冷服务器</div>
+                  
+                </div>
+                <div class="node-card node-2 p-4 flex-1 text-center">
+                  <div class="node-title">整机柜方案</div>
+                  
+                </div>
+                <div class="node-card node-3 p-4 flex-1 text-center">
+                  <div class="node-title">温控系统</div>
+                  
+                </div></div><div class="flex gap-4">
+                    <div class="node-card node-4 p-4 flex-1 text-center">
+                      <div class="node-title">数据中心级方案</div>
+                      
+                    </div></div></div>
+    </div>
+
+
+    <div class="card card-4 p-6">
+      <div class="section-title">🖥️ 下游应用层</div>
+      <div class="space-y-4"><div class="flex gap-4">
+                <div class="node-card node-1 p-4 flex-1 text-center">
+                  <div class="node-title">AI智算中心</div>
+                  
+                </div>
+                <div class="node-card node-2 p-4 flex-1 text-center">
+                  <div class="node-title">大模型训练</div>
+                  
+                </div>
+                <div class="node-card node-3 p-4 flex-1 text-center">
+                  <div class="node-title">超算中心</div>
+                  
+                </div></div><div class="flex gap-4">
+                    <div class="node-card node-4 p-4 flex-1 text-center">
+                      <div class="node-title">科学计算</div>
+                      
+                    </div>
+                    <div class="node-card node-5 p-4 flex-1 text-center">
+                      <div class="node-title">云计算数据中心</div>
+                      
+                    </div>
+                    <div class="node-card node-6 p-4 flex-1 text-center">
+                      <div class="node-title">互联网服务</div>
+                      
+                    </div></div></div>
+    </div>
+
+
+  </div>
+</body>
+</html>

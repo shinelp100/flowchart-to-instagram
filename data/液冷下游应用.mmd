@@ -1,0 +1,50 @@
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#FFE5D9',
+    'primaryTextColor': '#5D4E37',
+    'primaryBorderColor': '#E8C4B8',
+    'lineColor': '#B8A99A',
+    'secondaryColor': '#D4E7D4',
+    'secondaryTextColor': '#4A6741',
+    'secondaryBorderColor': '#A8C8A8',
+    'tertiaryColor': '#E8DFF5',
+    'tertiaryTextColor': '#5D4E6D',
+    'tertiaryBorderColor': '#C8B8D8',
+    'background': '#FFFBF5',
+    'mainBkg': '#FFF5EE',
+    'nodeBorder': '#E8D5C4',
+    'clusterBkg': '#F5F0EB',
+    'clusterBorder': '#D4C4B8',
+    'titleColor': '#6B5B4F',
+    'edgeLabelBackground': '#FFF9F0',
+    'fontFamily': 'PingFang SC, Microsoft YaHei, sans-serif',
+    'fontSize': '15px'
+  },
+  'flowchart': {
+    'curve': 'basis',
+    'padding': 20,
+    'nodeSpacing': 50,
+    'rankSpacing': 80,
+    'diagramPadding': 30
+  }
+}}%%
+flowchart LR
+    subgraph 应用场景["🎯 2026年液冷下游应用分布"]
+        A["AI智算中心<br/>45%"] --> A1["大模型训练"]
+        A --> A2["推理集群"]
+        
+        B["超算中心<br/>20%"] --> B1["科学计算"]
+        B --> B2["工程仿真"]
+        
+        C["云计算数据中心<br/>25%"] --> C1["互联网服务"]
+        C --> C2["企业上云"]
+        
+        D["其他<br/>10%"] --> D1["储能"]
+        D --> D2["5G基站"]
+    end
+    
+    style A fill:#E8DFF5,stroke:#C8B8D8,color:#5D4E6D
+    style B fill:#D6EAF8,stroke:#A8C8D8,color:#4A678D
+    style C fill:#D4E7D4,stroke:#A8C8A8,color:#4A6741
+    style D fill:#FFF3CD,stroke:#E8D8A8,color:#6B5B4F
