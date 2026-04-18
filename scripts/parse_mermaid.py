@@ -137,6 +137,7 @@ class Flowchart:
     watermark: str = "题材调研员"
     direction: str = "TD"  # LR=Left-Right, TD=Top-Down
     subgraphs: List[Subgraph] = field(default_factory=list)
+    raw_text: str = ""  # 原始文本，用于场景识别
     all_nodes: Dict[str, Node] = field(default_factory=dict)
     all_connections: List[Tuple[str, str]] = field(default_factory=list)
 
@@ -219,6 +220,7 @@ def parse_mermaid(text: str) -> Flowchart:
     解析 Mermaid flowchart TD 语法
     """
     flowchart = Flowchart()
+    flowchart.raw_text = text  # 保存原始文本，用于场景识别
     
     # 提取 title（如果有 %% title: xxx 注释）
     title_match = re.search(r'%%\s*title:\s*(.+)', text)
@@ -276,7 +278,7 @@ def parse_mermaid(text: str) -> Flowchart:
         
         # 检测 subgraph 开始 - 格式: subgraph SG_ID["标题"] 或 subgraph 中文ID["标题"]
         # 支持中文ID（如 "上游"、"中游"）
-        sg_match = re.match(r'subgraph\s+(\S+)\s*[\[\("]+([^\]\)]+)[\]\)"]+', line_stripped)
+        sg_match = re.match(r'subgraph\s+(\S+)\s*\["([^"]+)"\]', line_stripped)
         if sg_match:
             sg_id = sg_match.group(1)
             sg_title_raw = sg_match.group(2)
@@ -291,13 +293,18 @@ def parse_mermaid(text: str) -> Flowchart:
             current_subgraph = None
             continue
         
-        # 解析节点定义 - 格式: A["内容"] 或 A("内容")
+# 解析节点定义 - 格式: A["内容"] 或 A("内容") 或 A[内容]（无引号）
         # 使用 findall 找出所有节点定义（包括连接行中的）
-        # 改进的正则，精确匹配节点定义格式 A["content"] 或 A("content")
-        node_matches = re.findall(r'([A-Za-z0-9_]+)\s*\[\"([^\"]+)\"\]', line_stripped)
-        # 如果没有找到方括号格式，尝试圆括号格式
+        # 改进的正则，支持三种格式：
+        # 1. A["content"] - 双引号方括号
+        # 2. A("content") - 双引号圆括号
+        # 3. A[content] - 无引号方括号（用户常用）
+        node_matches = re.findall(r'([A-Za-z0-9_]+)\s*\[\"([^"]+)\"\]', line_stripped)
         if not node_matches:
-            node_matches = re.findall(r'([A-Za-z0-9_]+)\s*\(\"([^\"]+)\"\)', line_stripped)
+            node_matches = re.findall(r'([A-Za-z0-9_]+)\s*\(\"([^"]+)\"\)', line_stripped)
+        if not node_matches:
+            # 支持无引号格式：A[内容]
+            node_matches = re.findall(r'([A-Za-z0-9_]+)\s*\[([^\]]+)\]', line_stripped)
         for node_id, content in node_matches:
             if node_id not in flowchart.all_nodes:
                 icon, title, desc = parse_node_content(content)
@@ -334,13 +341,35 @@ def parse_mermaid(text: str) -> Flowchart:
                     current_subgraph.nodes.append(placeholder_node)
                 flowchart.all_nodes[to_id] = placeholder_node
     
-    # 处理未分配到任何 subgraph 的节点（放在最后一个 subgraph）
-    unassigned_nodes = [n for n in flowchart.all_nodes.values() if not n.subgraph]
+    # 检测跨subgraph汇聚节点（来自多个不同subgraph的连接）
+    # 这些节点应作为独立总结卡片，不放入任何subgraph
+    cross_sg_sink_nodes = []
+    for node_id, node in flowchart.all_nodes.items():
+        if node.subgraph:  # 已分配到subgraph，跳过
+            continue
+        # 检查该节点的所有入边来源
+        incoming_sources = []
+        for from_id, to_id in flowchart.all_connections:
+            if to_id == node_id:
+                source_node = flowchart.all_nodes.get(from_id)
+                if source_node and source_node.subgraph:
+                    incoming_sources.append(source_node.subgraph)
+        # 如果来自多个不同subgraph，标记为跨subgraph汇聚节点
+        unique_sources = set(incoming_sources)
+        if len(unique_sources) >= 2:
+            cross_sg_sink_nodes.append(node)
+    
+    # 其他未分配节点（非跨subgraph汇聚）：放入最后一个subgraph
+    unassigned_nodes = [n for n in flowchart.all_nodes.values() 
+                        if not n.subgraph and n not in cross_sg_sink_nodes]
     if unassigned_nodes and flowchart.subgraphs:
         last_sg = flowchart.subgraphs[-1]
         for node in unassigned_nodes:
             node.subgraph = last_sg.id
             last_sg.nodes.append(node)
+    
+    # 存储跨subgraph汇聚节点，供渲染时使用
+    flowchart.cross_sg_sink_nodes = cross_sg_sink_nodes
     
     # 如果没有 subgraph，创建一个默认的
     if not flowchart.subgraphs and flowchart.all_nodes:
@@ -351,6 +380,113 @@ def parse_mermaid(text: str) -> Flowchart:
         flowchart.subgraphs.append(default_sg)
     
     return flowchart
+
+
+def detect_lr_scene_type(flowchart: Flowchart) -> str:
+    """
+    检测 LR 流程图的场景类型
+    
+    返回:
+        'timeline' - 时间线（节点含年月日等时间标记）
+        'process' - 流程步骤（单线连接，操作/分析类节点）
+        'comparison' - 对比分析（分叉后汇聚结构）
+        'linear' - 线性递进（默认，无特殊特征）
+    """
+    import re
+    
+    # 时间关键词模式
+    time_patterns = [
+        r'\d{4}年', r'\d{4}',  # 2020年, 2020
+        r'\d{2}/\d{2}', r'\d{4}/\d{2}',  # 03/15, 2020/03
+        r'\d{2}\.\d{2}', r'\d{4}\.\d{2}',  # 03.15, 2020.03
+        r'Q[1-4]', r'第[一二三四]季度',  # Q1, 第一季度
+        r'H[1-2]', r'上半年|下半年',  # H1, 上半年
+        r'[一二三四]月', r'\d{1,2}月',  # 一月, 3月
+        r'过去|现在|未来|初期|中期|后期|起步|发展|成熟',
+    ]
+    
+    # 流程/操作关键词
+    process_keywords = [
+        '分析', '处理', '计算', '评估', '审核', '审批',
+        '收集', '整理', '汇总', '统计', '筛选',
+        '输入', '输出', '导入', '导出', '上传', '下载',
+        '步骤', '流程', '阶段', '环节',
+    ]
+    
+    # 收集所有节点标题 - 优先从 subgraphs 获取完整节点信息
+    all_titles = []
+    for sg in flowchart.subgraphs:
+        for node in sg.nodes:
+            # title + desc 组合
+            node_text = node.title
+            if node.desc:
+                node_text += ' ' + node.desc
+            all_titles.append(node_text)
+    
+    # 如果 subgraphs 为空，从 all_nodes 获取
+    if not all_titles:
+        all_titles = [n.title for n in flowchart.all_nodes.values()]
+    
+    # 补充：如果标题只是 ID（A、B 等），从原始连接中提取标签
+    if all_titles and all(len(t) <= 2 and t.isalpha() for t in all_titles):
+        # 从 flowchart 原始连接提取标签文本
+        for conn in flowchart.all_connections:
+            for node_id in conn:
+                if node_id in flowchart.all_nodes:
+                    node = flowchart.all_nodes[node_id]
+                    if hasattr(node, 'label') and node.label:
+                        all_titles.append(node.label)
+    
+    # 最后手段：检查 flowchart 是否有原始文本
+    if hasattr(flowchart, 'raw_text') and flowchart.raw_text:
+        # 从原始文本提取 [标签] 内容
+        import re
+        labels = re.findall(r'\[([^\]]+)\]', flowchart.raw_text)
+        all_titles.extend(labels)
+    
+    combined_titles = ' '.join(all_titles)
+    
+    # 1. 检测时间线特征
+    time_matches = 0
+    for pattern in time_patterns:
+        matches = re.findall(pattern, combined_titles)
+        time_matches += len(matches)
+    
+    # 如果超过一半节点含时间标记 → 时间线
+    if time_matches >= len(all_titles) * 0.5:
+        return 'timeline'
+    
+    # 2. 检测对比特征（分叉后汇聚）
+    # 统计每个节点的入边和出边数量
+    in_degree = {}
+    out_degree = {}
+    
+    for node_id in flowchart.all_nodes:
+        in_degree[node_id] = 0
+        out_degree[node_id] = 0
+    
+    for from_id, to_id in flowchart.all_connections:
+        out_degree[from_id] = out_degree.get(from_id, 0) + 1
+        in_degree[to_id] = in_degree.get(to_id, 0) + 1
+    
+    # 找分叉点（出边>=2）和汇聚点（入边>=2且来自不同来源）
+    fork_nodes = [n for n, deg in out_degree.items() if deg >= 2]
+    sink_nodes = [n for n, deg in in_degree.items() if deg >= 2]
+    
+    # 如果有分叉且有汇聚 → 对比
+    if len(fork_nodes) >= 1 and len(sink_nodes) >= 1:
+        return 'comparison'
+    
+    # 3. 检测流程特征
+    process_matches = sum(1 for title in all_titles 
+                          if any(kw in title for kw in process_keywords))
+    
+    # 如果超过30%节点含流程关键词 → 流程
+    if process_matches >= len(all_titles) * 0.3:
+        return 'process'
+    
+    # 4. 默认为线性递进
+    return 'linear'
 
 
 def analyze_hierarchical_structure(nodes: List[Node], connections: List[Tuple[str, str]]) -> List[List[Node]]:
@@ -532,41 +668,55 @@ def icon_to_html(icon: str) -> str:
     return icon
 
 
-def generate_sketchy_arrow(direction='down', label='', is_sketchy=False):
+def generate_sketchy_arrow(direction='down', label='', is_sketchy=False, progress_index=0, total_nodes=1):
     """
     生成手绘风格箭头 SVG
     
     direction: 'down' (向下), 'right' (向右), 'wavy' (波浪)
-    label: 箭头旁边的简短关系词
+    label: 头旁边的简短关系词
     is_sketchy: 是否使用手绘风格
+    progress_index: 当前箭头在流程中的位置索引（0-based）
+    total_nodes: 总节点数，用于计算渐变进度
     """
-    if not is_sketchy:
-        # 非手绘风格：简单字符箭头
-        if direction == 'down':
-            return '<div class="text-center text-gray-400 text-xl">↓</div>'
-        elif direction == 'right':
-            return '<div class="text-gray-400 text-xl self-center">→</div>'
-        else:
-            return '<div class="text-center text-gray-400 text-xl">↓</div>'
+    # 渐变色阶：蓝 → 紫 → 红 → 橙（表示进度推进）
+    gradient_colors = ['#3498DB', '#9B59B6', '#E74C3C', '#F39C12']
     
-    # 手绘风格：SVG 波浪箭头
+    # 计算当前箭头颜色
+    if total_nodes > 1:
+        # 根据进度位置选择颜色
+        progress_ratio = progress_index / (total_nodes - 1)  # 0 → 1
+        color_idx = min(int(progress_ratio * len(gradient_colors)), len(gradient_colors) - 1)
+        arrow_color = gradient_colors[color_idx]
+    else:
+        arrow_color = gradient_colors[0]  # 默认蓝色
+    
+    if not is_sketchy:
+        # 非手绘风格：简单字符箭头（带渐变颜色）
+        if direction == 'down':
+            return f'<div class="text-center text-xl" style="color:{arrow_color}">↓</div>'
+        elif direction == 'right':
+            return f'<div class="text-xl self-center" style="color:{arrow_color}">→</div>'
+        else:
+            return f'<div class="text-center text-xl" style="color:{arrow_color}">↓</div>'
+    
+    # 手绘风格：SVG 波浪箭头（带渐变颜色）
     if direction == 'down':
-        svg = '''<svg class="sketchy-arrow-svg" width="40" height="30" viewBox="0 0 40 30" style="display:block;margin:8px auto;">
-          <path d="M20 5 Q15 10 20 15 Q25 20 20 25" stroke="#2C3E50" stroke-width="2" fill="none" stroke-linecap="round"/>
-          <path d="M15 22 L20 28 L25 22" stroke="#2C3E50" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        svg = f'''<svg class="sketchy-arrow-svg" width="40" height="30" viewBox="0 0 40 30" style="display:block;margin:8px auto;">
+          <path d="M20 5 Q15 10 20 15 Q25 20 20 25" stroke="{arrow_color}" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <path d="M15 22 L20 28 L25 22" stroke="{arrow_color}" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>'''
         if label:
             return f'<div class="text-center"><span class="sketchy-arrow-label text-xs" style="color:#6B6B6B;margin-bottom:4px;">{label}</span>{svg}</div>'
         return svg
     elif direction == 'right':
-        return '''<svg class="sketchy-arrow-svg" width="40" height="24" viewBox="0 0 40 24" style="display:inline-block;margin:0 8px;vertical-align:middle;">
-          <path d="M5 12 Q10 8 15 12 Q20 16 25 12 Q30 8 35 12" stroke="#2C3E50" stroke-width="2" fill="none" stroke-linecap="round"/>
-          <path d="M32 8 L38 12 L32 16" stroke="#2C3E50" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>'''
+        return f'''<div class="flex items-center"><svg class="sketchy-arrow-svg" width="40" height="24" viewBox="0 0 40 24" style="display:block;">
+          <path d="M5 12 Q10 8 15 12 Q20 16 25 12 Q30 8 35 12" stroke="{arrow_color}" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <path d="M32 8 L38 12 L32 16" stroke="{arrow_color}" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg></div>'''
     else:
-        return '''<svg class="sketchy-arrow-svg" width="40" height="30" viewBox="0 0 40 30" style="display:block;margin:8px auto;">
-          <path d="M20 5 Q15 10 20 15 Q25 20 20 25" stroke="#2C3E50" stroke-width="2" fill="none" stroke-linecap="round"/>
-          <path d="M15 22 L20 28 L25 22" stroke="#2C3E50" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        return f'''<svg class="sketchy-arrow-svg" width="40" height="30" viewBox="0 0 40 30" style="display:block;margin:8px auto;">
+          <path d="M20 5 Q15 10 20 15 Q25 20 20 25" stroke="{arrow_color}" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <path d="M15 22 L20 28 L25 22" stroke="{arrow_color}" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>'''
 
 
@@ -629,6 +779,7 @@ THEMES = {
         'desc_color': '#3a3a3a',
         'icon_color': '#833ab4',
         'arrow_color': 'text-gray-400',
+        'accent': '#833ab4',
     },
     'xiaohongshu': {
         'name': '小红书风格',
@@ -651,6 +802,7 @@ THEMES = {
         'desc_color': '#5a5a5a',
         'icon_color': '#ff6b81',
         'arrow_color': 'text-pink-400',
+        'accent': '#ff6b81',
     },
     'business': {
         'name': '商务简报风格',
@@ -673,6 +825,7 @@ THEMES = {
         'desc_color': '#4a5568',
         'icon_color': '#2c5282',
         'arrow_color': 'text-blue-600',
+        'accent': '#2c5282',
     },
     'darktech': {
         'name': '暗黑科技风格',
@@ -695,6 +848,7 @@ THEMES = {
         'desc_color': '#a0a0b0',
         'icon_color': '#8b5cf6',
         'arrow_color': 'text-violet-400',
+        'accent': '#8b5cf6',
     },
     'warm': {
         'name': '温暖柔和风格',
@@ -717,6 +871,7 @@ THEMES = {
         'desc_color': '#7a6050',
         'icon_color': '#f59e0b',
         'arrow_color': 'text-amber-500',
+        'accent': '#f59e0b',
     },
     'minimal': {
         'name': '极简黑白风格',
@@ -739,6 +894,7 @@ THEMES = {
         'desc_color': '#4a4a4a',
         'icon_color': '#404040',
         'arrow_color': 'text-gray-500',
+        'accent': '#404040',
     },
     # 手绘风教育插画风格 - 基于 sketch-notes + macaron 规范
     'hand-drawn-edu': {
@@ -774,6 +930,7 @@ THEMES = {
         'desc_color': '#6B6B6B',     # 暖灰（辅助标注）
         'icon_color': '#E8655A',     # 珊瑚红（强调色）
         'arrow_color': '#2C3E50',    # 手绘箭头颜色
+        'accent': '#E8655A',         # 场景样式强调色
         # 手绘特效
         'sketchy_filter': True,      # 启用手绘抖动
         'hand_drawn_border': True,   # 启用不规则边框
@@ -797,6 +954,11 @@ def generate_html(flowchart: Flowchart, theme: str = 'hand-drawn-edu') -> str:
     
     # 获取主题配置
     t = THEMES.get(theme, THEMES['instagram'])
+    
+    # LR 模式场景检测
+    lr_scene_type = None
+    if flowchart.direction == 'LR':
+        lr_scene_type = detect_lr_scene_type(flowchart)
     
     # 节点配色类
     node_colors = ['node-1', 'node-2', 'node-3', 'node-4', 'node-5', 'node-6']
@@ -901,6 +1063,115 @@ def generate_html(flowchart: Flowchart, theme: str = 'hand-drawn-edu') -> str:
     .node-title { font-size: 19px; font-weight: 600; color: ''' + t['title_color'] + '''; line-height: 1.4; }
     .node-desc { font-size: 15px; font-weight: 400; color: ''' + t['desc_color'] + '''; line-height: 1.5; margin-top: 6px; }
     .node-icon { color: ''' + t['icon_color'] + '''; opacity: 0.85; margin-bottom: 8px; }
+    /* Timeline 场景样式 */
+    .timeline-node { position: relative; padding-left: 32px; }
+    .timeline-node::before {
+      content: '';
+      position: absolute;
+      left: 12px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: linear-gradient(to bottom, ''' + t['card_1'] + ''', ''' + t['card_2'] + ''');
+    }
+    .timeline-node::after {
+      content: '';
+      position: absolute;
+      left: 6px;
+      top: 24px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: ''' + t['accent'] + ''';
+      border: 3px solid ''' + t['node_border'] + ''';
+    }
+    /* LR 横向时间线样式 */
+    .lr-timeline-card {
+      position: relative;
+      padding-top: 24px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, ''' + t['card_1'] + ''' 0%, ''' + t['card_2'] + ''' 100%);
+    }
+    .lr-timeline-card::before {
+      content: '';
+      position: absolute;
+      top: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: ''' + t['accent'] + ''';
+      border: 3px solid ''' + t['node_border'] + ''';
+      z-index: 2;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .lr-timeline-label {
+      position: absolute;
+      top: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 14px;
+      font-weight: 700;
+      color: ''' + t['accent'] + ''';
+      white-space: nowrap;
+      background: ''' + t.get('bg', '#FFFFFF') + ''';
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    /* 时间线描述区域 */
+    .lr-timeline-desc {
+      font-size: 13px;
+      color: ''' + t['desc_color'] + ''';
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+    /* Process 场景样式 */
+    .process-step { position: relative; }
+    .process-step .step-number {
+      position: absolute;
+      top: -8px;
+      left: -8px;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: ''' + t['accent'] + ''';
+      color: white;
+      font-weight: 700;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    /* LR 里程碑样式 - 大编号 */
+    .lr-milestone-card {
+      position: relative;
+      padding: 24px;
+      padding-left: 64px;
+      border-left: 4px solid ''' + t['accent'] + ''';
+      background: linear-gradient(135deg, ''' + t['card_1'] + ''' 0%, ''' + t['card_2'] + ''' 100%);
+    }
+    .lr-milestone-number {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, ''' + t['accent'] + ''' 0%, ''' + t['node_border'] + ''' 100%);
+      color: white;
+      font-size: 18px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    /* Comparison 场景样式 */
+    .comparison-node { border-width: 2px; }
+    .comparison-pro { border-color: #10B981; background: rgba(16, 185, 129, 0.08); }
+    .comparison-con { border-color: #EF4444; background: rgba(239, 68, 68, 0.08); }
     .node-1 { background: ''' + t['node_1'] + '''; }
     .node-2 { background: ''' + t['node_2'] + '''; }
     .node-3 { background: ''' + t['node_3'] + '''; }
@@ -915,6 +1186,24 @@ def generate_html(flowchart: Flowchart, theme: str = 'hand-drawn-edu') -> str:
     /* 主题箭头颜色 */
     .arrow-color { color: ''' + t['arrow_color'] + '''; opacity: 0.7; }
     ''' + sketchy_css + '''
+    /* LR 多行布局样式 */
+    .lr-row {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+    }
+    .lr-card {
+      min-width: 320px;
+      /* 不限制 max-width，让卡片自适应内容 */
+    }
+    .lr-row-arrow {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      padding: 12px 0;
+    }
   </style>
 </head>
 <body class="p-5">
@@ -936,7 +1225,8 @@ def generate_html(flowchart: Flowchart, theme: str = 'hand-drawn-edu') -> str:
       </defs>
       <rect width="100%" height="100%" fill="url(#watermark-pattern)"/>
     </svg>
-    <div class="relative z-10 mx-auto ''' + ('flex gap-6 items-stretch' if flowchart.direction == 'LR' else 'space-y-5') + '''" style="max-width: 800px;" id="content">
+    ''' + ('''<!-- LR 多行布局容器 -->
+    <div class="relative z-10 mx-auto flex flex-col items-center gap-0" style="max-width: 1200px" id="content">''' if flowchart.direction == 'LR' else '''<div class="relative z-10 mx-auto space-y-5" style="max-width: 800px" id="content">''') + '''
 ''')
     
     # 生成每个 subgraph 的卡片
@@ -1065,26 +1355,75 @@ def generate_html(flowchart: Flowchart, theme: str = 'hand-drawn-edu') -> str:
         
         nodes_html = ''
         
-        # LR模式：节点纵向排列，简化布局
+        # LR模式：节点横向排列，真正实现 Left-Right
         if flowchart.direction == 'LR':
-            nodes_html = '<div class="space-y-3 flex-1">'
+            import re
+            
+            # 横向 flex 布局，节点并排，超出时换行
+            nodes_html = '<div class="flex gap-5 items-stretch flex-1 flex-wrap">'
+            
             for node_idx, node in enumerate(sg.nodes):
                 node_class = node_colors[node_idx % len(node_colors)]
+                
                 title_br = node.title.replace('\n', '<br>')
                 desc_br = node.desc.replace('\n', '<br>') if node.desc else ''
                 desc_html = f'<div class="node-desc">{desc_br}</div>' if desc_br else ''
                 icon_html = icon_to_html(node.icon) if node.icon else ''
                 icon_div = f'<div class="node-icon text-xl mb-1">{icon_html}</div>' if icon_html else ''
                 
-                nodes_html += f'''
-                <div class="node-card {node_class} p-4 text-center">
-                  {icon_div}<div class="node-title">{title_br}</div>
-                  {desc_html}
-                </div>'''
+                # 根据场景选择不同的节点设计
+                if lr_scene_type == 'timeline':
+                    # 时间线样式：顶部时间标签 + 圆点装饰
+                    time_match = re.search(r'(\d{4}年|\d{4}|\d+月|\d{2}/\d{2})', title_br)
+                    time_label = time_match.group(1) if time_match else ''
+                    
+                    # 提取事件描述（去掉时间部分）
+                    event_text = title_br.replace(time_label, '').strip() if time_label else title_br
+                    
+                    nodes_html += f'''
+                    <div class="node-card {node_class} lr-timeline-card p-5 text-center min-w-[200px] max-w-[280px] relative">
+                      <div class="lr-timeline-label">{time_label}</div>
+                      {icon_div}<div class="node-title text-lg font-semibold">{event_text}</div>
+                      {desc_html}
+                    </div>'''
+                    
+                elif lr_scene_type == 'process':
+                    # 里程碑样式：大编号 + 标题
+                    nodes_html += f'''
+                    <div class="node-card {node_class} lr-milestone-card p-6 text-left min-w-[220px] max-w-[300px] relative">
+                      <div class="lr-milestone-number">{node_idx + 1}</div>
+                      {icon_div}<div class="node-title text-xl font-semibold">{title_br}</div>
+                      {desc_html}
+                    </div>'''
+                    
+                elif lr_scene_type == 'comparison':
+                    # 对比样式：pro/con 颜色区分
+                    scene_class = 'comparison-node'
+                    title_lower = title_br.lower()
+                    if any(kw in title_lower for kw in ['多', '利好', '优势', '正面', '看涨', 'bull', '买入', '增持']):
+                        scene_class += ' comparison-pro'
+                    elif any(kw in title_lower for kw in ['空', '利空', '风险', '劣势', '负面', '看跌', 'bear', '卖出', '减持']):
+                        scene_class += ' comparison-con'
+                    
+                    nodes_html += f'''
+                    <div class="node-card {node_class} {scene_class} p-6 text-center min-w-[200px] max-w-[280px]">
+                      {icon_div}<div class="node-title text-xl font-semibold">{title_br}</div>
+                      {desc_html}
+                    </div>'''
+                    
+                else:
+                    # 默认线性样式：标准卡片
+                    nodes_html += f'''
+                    <div class="node-card {node_class} p-6 text-center min-w-[200px] max-w-[280px]">
+                      {icon_div}<div class="node-title text-xl font-semibold">{title_br}</div>
+                      {desc_html}
+                    </div>'''
                 
-                # 节点之间添加向下箭头
+                # 节点之间添加向右箭头（横向，带渐变色）
                 if node_idx < len(sg.nodes) - 1:
-                    nodes_html += generate_sketchy_arrow('down', '', is_sketchy)
+                    nodes_html += generate_sketchy_arrow('right', '', is_sketchy, 
+                                                         progress_index=node_idx, 
+                                                         total_nodes=len(sg.nodes))
             
             nodes_html += '</div>'
         
@@ -1308,7 +1647,9 @@ def generate_html(flowchart: Flowchart, theme: str = 'hand-drawn-edu') -> str:
                           {desc_html}
                         </div>'''
                         if n_idx < len(chain) - 1:
-                            nodes_html += generate_sketchy_arrow('right', '', is_sketchy)
+                            nodes_html += generate_sketchy_arrow('right', '', is_sketchy,
+                                                                 progress_index=n_idx,
+                                                                 total_nodes=len(chain))
                     nodes_html += '</div>'
             
             nodes_html += '</div>'
@@ -1378,16 +1719,93 @@ def generate_html(flowchart: Flowchart, theme: str = 'hand-drawn-edu') -> str:
                 # emoji 直接显示
                 sg_icon_html = f'<span class="mr-2">{sg.icon}</span>'
         
-        # LR模式：卡片flex-1等宽，内部纵向布局
+        # LR模式：卡片flex-1等宽，内部纵向布局，支持多行
         card_extra_class = 'flex-1 flex flex-col' if flowchart.direction == 'LR' else ''
-        html_parts.append(f'''
+        
+        # LR 布局：添加水平箭头和分行逻辑
+        if flowchart.direction == 'LR':
+            ITEMS_PER_ROW = 3  # 每行最多 3 个卡片
+            current_row = idx // ITEMS_PER_ROW
+            current_col = idx % ITEMS_PER_ROW
+            
+            # 新行开始：添加行容器和向下箭头
+            if current_col == 0:
+                if idx > 0:
+                    # 不是第一行，添加向下箭头
+                    html_parts.append('''
+    </div>
+    <div class="lr-row-arrow">
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M16 4 L16 24 M8 18 L16 26 L24 18" stroke="''' + t['arrow_color'] + '''" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="4 2"/>
+      </svg>
+    </div>
+    <div class="lr-row">
+''')
+                else:
+                    # 第一行开始
+                    html_parts.append('''
+    <div class="lr-row">
+''')
+            
+            # 添加卡片
+            html_parts.append(f'''
+      <div class="card {card_class} p-6 lr-card">
+        <div class="section-title">{sg_icon_html}{sg.title}</div>
+        {nodes_html}
+      </div>
+''')
+            
+            # 同一行内，非最后一个卡片后添加水平箭头
+            if current_col < ITEMS_PER_ROW - 1 and idx < len(flowchart.subgraphs) - 1:
+                html_parts.append('''
+      <div class="flex items-center self-center"><svg width="28" height="24" viewBox="0 0 28 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;">
+        <path d="M4 12 L20 12 M14 6 L22 12 L14 18" stroke="''' + t['arrow_color'] + '''" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 2"/>
+      </svg></div>
+''')
+        else:
+            # TD 布局：原有逻辑
+            html_parts.append(f'''
     <div class="card {card_class} p-6 {card_extra_class}">
       <div class="section-title">{sg_icon_html}{sg.title}</div>
       {nodes_html}
     </div>
 ''')
     
+    # 渲染跨subgraph汇聚节点（独立总结卡片）
+    cross_sg_sink_nodes = getattr(flowchart, 'cross_sg_sink_nodes', [])
+    if cross_sg_sink_nodes:
+        # 创建一个居中的总结卡片
+        nodes_html = '<div class="flex justify-center gap-4">'
+        for node_idx, node in enumerate(cross_sg_sink_nodes):
+            node_class = node_colors[node_idx % len(node_colors)]
+            title_br = node.title.replace('\n', '<br>')
+            desc_br = node.desc.replace('\n', '<br>') if node.desc else ''
+            desc_html = f'<div class="node-desc">{desc_br}</div>' if desc_br else ''
+            icon_html = icon_to_html(node.icon) if node.icon else ''
+            icon_div = f'<div class="node-icon text-xl mb-1">{icon_html}</div>' if icon_html else ''
+            
+            nodes_html += f'''
+            <div class="node-card {node_class} p-5 text-center" style="min-width: 200px;">
+              {icon_div}<div class="node-title">{title_br}</div>
+              {desc_html}
+            </div>'''
+        
+        nodes_html += '</div>'
+        
+        # 总结卡片使用特殊颜色（金色渐变）
+        summary_card_class = 'card-4'
+        html_parts.append(f'''
+    <div class="card {summary_card_class} p-6">
+      <div class="section-title">📊 综合评价</div>
+      {nodes_html}
+    </div>
+''')
+    
     # HTML 尾部
+    # LR 布局：关闭最后一行的容器
+    if flowchart.direction == 'LR' and len(flowchart.subgraphs) > 0:
+        html_parts.append('''
+    </div>''')  # 关闭 lr-row
     html_parts.append('''
     </div>
     <script>
@@ -1616,6 +2034,52 @@ def parse_markdown(text: str) -> Flowchart:
     return flowchart
 
 
+def split_flowchart_for_lr(flowchart: Flowchart, max_per_page: int = 4) -> List[Flowchart]:
+    """
+    将过长的 LR 布局 flowchart 拆分成多个部分
+    
+    Args:
+        flowchart: 原始 flowchart
+        max_per_page: 每页最多包含的 subgraph 数量
+        
+    Returns:
+        拆分后的 Flowchart 列表，每个代表一页
+    """
+    if flowchart.direction != 'LR':
+        return [flowchart]
+    
+    if len(flowchart.subgraphs) <= max_per_page:
+        return [flowchart]
+    
+    # 拆分 subgraphs
+    pages = []
+    for i in range(0, len(flowchart.subgraphs), max_per_page):
+        page_subgraphs = flowchart.subgraphs[i:i + max_per_page]
+        
+        # 创建新的 Flowchart
+        page_num = i // max_per_page + 1
+        total_pages = (len(flowchart.subgraphs) + max_per_page - 1) // max_per_page
+        
+        # 标题添加页码
+        if total_pages > 1:
+            title = f"{flowchart.title} ({page_num}/{total_pages})"
+        else:
+            title = flowchart.title
+        
+        page_fc = Flowchart(
+            title=title,
+            watermark=flowchart.watermark,
+            direction='LR',
+            subgraphs=page_subgraphs,
+            raw_text=flowchart.raw_text,
+            all_nodes=flowchart.all_nodes.copy(),
+            all_connections=flowchart.all_connections.copy()
+        )
+        pages.append(page_fc)
+    
+    return pages
+
+
 def main():
     parser = argparse.ArgumentParser(description='产业链图谱解析器 - 支持Mermaid和Markdown格式')
     parser.add_argument('input', nargs='?', help='输入文件路径 (.mmd 或 .md)')
@@ -1625,6 +2089,8 @@ def main():
     parser.add_argument('--theme', choices=list(THEMES.keys()), default='hand-drawn-edu',
                         help=f'主题风格: {", ".join(THEMES.keys())} (默认: hand-drawn-edu)')
     parser.add_argument('--list-themes', action='store_true', help='列出所有可用主题')
+    parser.add_argument('--max-lr', type=int, default=4, 
+                        help='LR布局每页最大subgraph数量 (默认: 4, 0表示不拆分)')
     
     args = parser.parse_args()
     
@@ -1750,8 +2216,9 @@ end
         flowchart = parse_mermaid(input_text)
         print('Using Mermaid parser')
     
-    # 生成 HTML (使用指定主题)
-    html = generate_html(flowchart, theme=args.theme)
+    # 拆分 LR 布局（如果需要）
+    max_lr = args.max_lr if args.max_lr > 0 else 999  # 0 表示不拆分
+    flowchart_pages = split_flowchart_for_lr(flowchart, max_per_page=max_lr)
     
     # 输出
     if args.output:
@@ -1759,13 +2226,27 @@ end
     else:
         output_path = input_path.with_suffix('.html')
     
-    output_path.write_text(html)
-    print(f'HTML generated: {output_path}')
-    print(f'  Theme: {THEMES[args.theme]["name"]}')
-    print(f'  Title: {flowchart.title}')
-    print(f'  Watermark: {flowchart.watermark}')
-    print(f'  Subgraphs: {len(flowchart.subgraphs)}')
-    print(f'  Nodes: {len(flowchart.all_nodes)}')
+    # 生成多个 HTML 文件（如果拆分了）
+    if len(flowchart_pages) > 1:
+        print(f'LR layout split into {len(flowchart_pages)} pages')
+        for i, page_fc in enumerate(flowchart_pages, 1):
+            html = generate_html(page_fc, theme=args.theme)
+            # 文件名: name-1.html, name-2.html
+            page_output = output_path.with_stem(f'{output_path.stem}-{i}')
+            page_output.write_text(html)
+            print(f'Page {i} HTML: {page_output}')
+            print(f'  Title: {page_fc.title}')
+            print(f'  Subgraphs: {len(page_fc.subgraphs)}')
+    else:
+        # 单页输出
+        html = generate_html(flowchart_pages[0], theme=args.theme)
+        output_path.write_text(html)
+        print(f'HTML generated: {output_path}')
+        print(f'  Theme: {THEMES[args.theme]["name"]}')
+        print(f'  Title: {flowchart.title}')
+        print(f'  Watermark: {flowchart.watermark}')
+        print(f'  Subgraphs: {len(flowchart.subgraphs)}')
+        print(f'  Nodes: {len(flowchart.all_nodes)}')
 
 
 if __name__ == '__main__':
