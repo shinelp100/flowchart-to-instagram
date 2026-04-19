@@ -1225,8 +1225,8 @@ def generate_html(flowchart: Flowchart, theme: str = 'hand-drawn-edu') -> str:
       </defs>
       <rect width="100%" height="100%" fill="url(#watermark-pattern)"/>
     </svg>
-    ''' + ('''<!-- LR 多行布局容器 -->
-    <div class="relative z-10 mx-auto flex flex-col items-center gap-0" style="max-width: 1200px" id="content">''' if flowchart.direction == 'LR' else '''<div class="relative z-10 mx-auto space-y-5" style="max-width: 800px" id="content">''') + '''
+    ''' + ('''<!-- LR 横向布局容器 - 不限制宽度 -->
+    <div class="relative z-10" style="width: 100%" id="content">''' if flowchart.direction == 'LR' else '''<div class="relative z-10 mx-auto space-y-5" style="max-width: 800px" id="content">''') + '''
 ''')
     
     # 生成每个 subgraph 的卡片
